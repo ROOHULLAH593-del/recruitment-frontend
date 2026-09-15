@@ -1,0 +1,340 @@
+@import "tailwindcss";
+
+/*
+ * @theme declares the token names Tailwind generates utilities from (bg-canvas,
+ * text-ink, font-display, etc.) plus fallback values so those utilities resolve
+ * to something sane before a theme has mounted. The actual per-theme values
+ * live below, under html[data-theme="name"] — switching that attribute at
+ * runtime re-points every utility class without rebuilding any CSS.
+ */
+@theme {
+  --color-canvas: #ffffff;
+  --color-surface-muted: #f7f7f8;
+  --color-ink: #16181d;
+  --color-emphasis: #16181d;
+  --color-card-ring: rgba(22, 24, 29, 0.1);
+  --color-card-shadow: rgba(0, 0, 0, 0);
+  --color-card-fill: var(--color-canvas);
+  --color-surface-elevated: var(--color-card-fill);
+  --shadow-glow: 0 0 0 rgba(0, 0, 0, 0);
+
+  --color-jade: #0f6e5c;
+  --color-jade-deep: #0b5245;
+  --color-jade-tint: #e1efea;
+
+  --color-amber: #b8842c;
+  --color-amber-deep: #7c5519;
+  --color-amber-tint: #f6e8d2;
+
+  --color-rust: #a8412f;
+  --color-rust-deep: #832f21;
+  --color-rust-tint: #f2deda;
+
+  --color-violet: var(--color-jade);
+  --color-violet-deep: var(--color-jade-deep);
+  --color-violet-tint: var(--color-jade-tint);
+
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+html[data-theme="default"] {
+  --color-canvas: #ffffff;
+  --color-surface-muted: #f7f7f8;
+  --color-ink: #16181d;
+  --color-emphasis: #16181d;
+  --color-card-ring: rgba(22, 24, 29, 0.1);
+  --color-card-shadow: rgba(0, 0, 0, 0);
+  --color-card-fill: var(--color-canvas);
+  --color-surface-elevated: var(--color-card-fill);
+  --shadow-glow: 0 0 0 rgba(0, 0, 0, 0);
+
+  --color-jade: #0f6e5c;
+  --color-jade-deep: #0b5245;
+  --color-jade-tint: #e1efea;
+
+  --color-amber: #b8842c;
+  --color-amber-deep: #7c5519;
+  --color-amber-tint: #f6e8d2;
+
+  --color-rust: #a8412f;
+  --color-rust-deep: #832f21;
+  --color-rust-tint: #f2deda;
+
+  --color-violet: var(--color-jade);
+  --color-violet-deep: var(--color-jade-deep);
+  --color-violet-tint: var(--color-jade-tint);
+
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/*
+ * "warm" — the app's live default theme (see ThemeContext.jsx), styled per
+ * the "Warm Premium" visual refresh: espresso-brown ink (not harsh black),
+ * a burnt-orange/terracotta brand accent (replacing the previous plum), and
+ * subtle, refined card surfaces (replacing the previous solid-tan-block
+ * treatment) — thin warm-beige borders and soft, barely-there shadow instead
+ * of a strong fill/ring. "jade" still names the brand-accent token slot
+ * (nav, links, focus rings, primary buttons via --color-emphasis) for
+ * consistency with every other theme's token names; "amber" holds honey
+ * (caution); "rust" holds a muted clay-red (destructive/error). The matching
+ * status-badge colors (sage, honey, clay) live in lib/theme.js's
+ * THEME_PALETTES.warm and are intentionally unchanged by this round.
+ *
+ * --color-card-fill is a clean, barely-off-canvas white — cards read as
+ * gently lifted paper on the cream canvas, not a distinct colored block.
+ * --color-card-ring is a low-alpha warm brown-beige hairline (down from the
+ * previous, much more visible plum-brown ring) and --color-card-shadow is a
+ * very soft warm-toned shadow, both tuned for "refined," not "boxed."
+ * --shadow-glow is a subtle terracotta focus/hover glow (see Button.jsx's
+ * primary variant and FormField.jsx) — much quieter than "dark" theme's
+ * neon-cyan version, matching this theme's overall restraint.
+ */
+[data-theme="warm"] {
+  --color-canvas: #fcf9f5;
+  --color-surface-muted: #f4eee7;
+  --color-ink: #3a2e24;
+  --color-emphasis: #8a3f1e;
+  --color-card-ring: rgba(120, 96, 70, 0.12);
+  --color-card-shadow: rgba(120, 90, 60, 0.07);
+  --color-card-fill: #ffffff;
+  --color-surface-elevated: var(--color-card-fill);
+  --shadow-glow: 0 0 0 1px rgba(193, 98, 45, 0.28), 0 6px 16px -8px rgba(193, 98, 45, 0.22);
+
+  --color-jade: #c1622d;
+  --color-jade-deep: #8a3f1e;
+  --color-jade-tint: #f5e1d0;
+
+  --color-amber: #b98a3e;
+  --color-amber-deep: #8f692c;
+  --color-amber-tint: #f5ead3;
+
+  --color-rust: #b0674c;
+  --color-rust-deep: #844b37;
+  --color-rust-tint: #f3e0d7;
+
+  --color-violet: var(--color-jade);
+  --color-violet-deep: var(--color-jade-deep);
+  --color-violet-tint: var(--color-jade-tint);
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/*
+ * "dark" ("Obsidian Neon") — selectable via ThemePicker alongside
+ * "warm"/"bold". Its `--color-ink` (body text) has to be LIGHT for text to
+ * read on a near-black canvas, which is the opposite of every other theme
+ * here. That inversion is harmless for anything that only ever uses `ink`
+ * as a low-opacity wash (dividers, muted text) since opacity-based usage
+ * adapts automatically — but Button's primary variant hardcodes a SOLID
+ * `bg-ink` with literal white text, which assumes `ink` is always the dark
+ * end. That assumption breaks under "dark" (white text on a near-white
+ * button). `--color-emphasis` exists to fix this generally rather than
+ * special-case it: it's a second "high-emphasis solid surface" token that
+ * happens to equal `ink` in every light-canvas theme (default/warm/bold —
+ * hence the mirrored value added to each of those blocks above), so nothing
+ * about them changes, but "dark" gives it its own genuinely-dark value so
+ * Button's primary variant still renders as a solid dark button, matching
+ * how Linear/Raycast/GitHub's own high-emphasis buttons actually work in
+ * dark mode (darker than the page canvas, not literally "whatever color
+ * body text is").
+ *
+ * Layered elevation: `--color-canvas` (page background) < `--color-surface-
+ * muted` (recessed panels — header's scrolled pill, toasts, the mismatch
+ * banner) < `--color-card-fill` (cards, tables, form containers — a real,
+ * distinct step up from canvas now, not identical to it) < `--color-surface-
+ * elevated` (modals, dropdowns — the topmost, lightest layer, since these
+ * float above everything else). Four monotonically lighter obsidian-charcoal
+ * steps create depth through surface contrast and thin borders
+ * (--color-card-ring, nudged up slightly for crisper definition now that
+ * fills actually differ from each other) rather than glow or transparency —
+ * cards read as solid product surfaces, not glass.
+ *
+ * The brand accent (jade/jade-deep/jade-tint) stays the re-hued neon cyan
+ * from the prior round — deliberately unchanged, including the reasoning
+ * for it (grounded in cerebrium.ai and lineaprompt.com, both of which spend
+ * saturated color on exactly one element role and stay neutral everywhere
+ * else) and the hover/focus-only `--shadow-glow` it drives (see Button.jsx's
+ * primary variant and FormField.jsx) — absent at rest, so a resting screen
+ * of tables and cards still reads calm; the neon only appears at the moment
+ * of interaction. Cyan remains the ONLY accent used for buttons/nav/focus,
+ * specifically to avoid clashing with "bold" theme's own violet-family
+ * brand accent.
+ *
+ * `--color-violet/-deep/-tint` is a new SECONDARY accent, reserved for data
+ * highlights and secondary emphasis that should read as distinct from a
+ * primary action or nav state — currently wired into JobDetailPage's skill
+ * tags (metadata, not a button or nav item). Every other theme defaults
+ * this trio to its own jade/jade-deep/jade-tint (see their blocks), so nothing
+ * changes for them; "dark" is the only theme where violet actually differs
+ * from cyan.
+ */
+[data-theme="dark"] {
+  --color-canvas: #0b0e14;
+  --color-surface-muted: #10141b;
+  --color-ink: #f0f2f5;
+  --color-emphasis: #050506;
+  --color-card-ring: rgba(240, 242, 245, 0.12);
+  --color-card-shadow: rgba(0, 0, 0, 0);
+  --color-card-fill: #141922;
+  --color-surface-elevated: #1a212c;
+  --shadow-glow: 0 0 0 1px rgba(34, 211, 238, 0.45), 0 10px 30px -8px rgba(34, 211, 238, 0.55);
+
+  --color-jade: #22d3ee;
+  --color-jade-deep: #0891b2;
+  --color-jade-tint: #cffafe;
+
+  --color-amber: #d9a441;
+  --color-amber-deep: #a97a2e;
+  --color-amber-tint: #f7ebd3;
+
+  --color-rust: #e88a7d;
+  --color-rust-deep: #b85b4e;
+  --color-rust-tint: rgba(232, 138, 125, 0.16);
+
+  --color-violet: #a78bfa;
+  --color-violet-deep: #7c3aed;
+  --color-violet-tint: #e9e0fb;
+
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/*
+ * `--color-card-ring`/`--color-card-shadow` exist for the same reason as
+ * `--color-emphasis` above: a real gap the card-based components (StatCard,
+ * the preview's table wrapper) exposed. Those components define their card
+ * chrome as `border-ink/10` on `bg-canvas` — a whisper-thin neutral hairline
+ * with zero fill contrast, since the card's own background is literally the
+ * same `canvas` value as the page behind it. That reads fine when a theme's
+ * overall character (serif display type, a distinct ink hue, etc.) carries
+ * enough presence on its own — but "bold" is plain Manrope on near-white, so
+ * a hairline-only card all but disappeared, which is what this fixes.
+ *
+ * Studied cash.app for how a genuinely bold, colorful product keeps cards
+ * legible in a serious context: it doesn't use soft neutral (or even tinted)
+ * shadows at all — depth comes from decisive, high-contrast solid color
+ * blocks (pure black or pure signature green cards on white) and, on its
+ * plainer neutral cards (review/rating badges), a crisp, clearly-visible
+ * dark border, not a hairline. Literally copying "solid color block" would
+ * reintroduce the saturated-everywhere fatigue problem for a dense, repeatedly
+ * -rendered data table (this isn't a one-off marketing hero card) — so the
+ * adapted version keeps cash.app's actual principle (decisive contrast, not
+ * a faint nudge) while translating "solid black/green block" down to a
+ * *clearly visible accent-tinted ring* sized for a small, calm-base UI
+ * element, and adds a soft violet-tinted shadow underneath as a second,
+ * complementary depth cue (a technique common to vibrant dashboard products
+ * generally, even though cash.app's own marketing cards skip shadows
+ * entirely — noted here since it isn't literally what was observed).
+ *
+ * Both tokens are defined for every theme so the same `border-card-ring` /
+ * `shadow-card-shadow` utility classes work everywhere: "default" gets
+ * values that render pixel-identical to its previous plain `ink/10` hairline
+ * and no shadow. "warm" and "dark" each grew their own real card-fill/ring
+ * (see their blocks above) for the same underlying reason — a hairline-only
+ * card, or a fill identical to the page behind it, wasn't giving either
+ * theme enough presence — while "bold" gets a decisive violet ring/shadow.
+ * Four different themes, four different techniques, all deliberately
+ * distinct from the plain hairline.
+ */
+[data-theme="bold"] {
+  --color-canvas: #ffffff;
+  --color-surface-muted: #f1eefc;
+  --color-ink: #2d2a3d;
+  --color-emphasis: #2d2a3d;
+  --color-card-ring: rgba(91, 61, 245, 0.4);
+  --color-card-shadow: rgba(91, 61, 245, 0.18);
+  --color-card-fill: var(--color-canvas);
+  --color-surface-elevated: var(--color-card-fill);
+  --shadow-glow: 0 0 0 rgba(0, 0, 0, 0);
+
+  --color-jade: #5b3df5;
+  --color-jade-deep: #4527d6;
+  --color-jade-tint: #ede9fe;
+
+  --color-amber: #f59e0b;
+  --color-amber-deep: #b45309;
+  --color-amber-tint: #fef3c7;
+
+  --color-rust: #f43f5e;
+  --color-rust-deep: #be123c;
+  --color-rust-tint: #ffe4e8;
+
+  --color-violet: var(--color-jade);
+  --color-violet-deep: var(--color-jade-deep);
+  --color-violet-tint: var(--color-jade-tint);
+
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/*
+ * Tailwind's preflight deliberately leaves <button> at the browser's native
+ * default cursor (an arrow, not a hand) rather than the "clickable" pointer
+ * most users expect — <a> already gets pointer natively, so this is a
+ * button-specific gap. One global rule here covers every button in the app
+ * (the shared Button component and every one-off icon/dropdown/tab button
+ * alike) instead of adding a `cursor-pointer` class to each individually.
+ * `:disabled` gets the standard not-allowed cursor as a safety net — several
+ * components already set this per-button via Tailwind's `disabled:` variant,
+ * which wins on specificity, so this only fills in any that don't.
+ */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+select {
+  cursor: pointer;
+}
+
+button:disabled,
+[role='button'][aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+/*
+ * Scrollbars, themed via the same --color-canvas/--color-ink custom
+ * properties every other themed surface already reads — since those are
+ * redefined per [data-theme="x"] block (see above), this single set of
+ * rules resolves to the correct theme's actual colors wherever a scrollbar
+ * renders, with no per-theme duplication. Track blends into the canvas
+ * background; thumb is a low-opacity wash of ink rather than an accent
+ * color, matching the app's existing whisper-thin-divider restraint.
+ * `scrollbar-width`/`scrollbar-color` are inherited properties per spec, so
+ * setting them once on :root is enough for Firefox to pick them up
+ * everywhere; the ::-webkit-scrollbar rules cover Chrome/Edge/Safari.
+ */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-ink) 25%, transparent) var(--color-canvas);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: var(--color-canvas);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--color-ink) 20%, transparent);
+  background-clip: padding-box;
+  border: 2px solid var(--color-canvas);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--color-ink) 35%, transparent);
+}
