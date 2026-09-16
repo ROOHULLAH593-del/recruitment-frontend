@@ -1,6 +1,7 @@
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { CalendarClock } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { CalendarClock, UserRound } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import Pagination from '../components/Pagination'
@@ -12,11 +13,40 @@ import { useScrollShadow } from '../hooks/useScrollShadow'
 import { useThemeColors } from '../hooks/useThemeColors'
 import { APPLICATION_STATUS_LABELS, APPLICATION_STATUS_ORDER } from '../lib/applicationStatus'
 import api from '../lib/axios'
+import { STALE_TIME } from '../lib/queryClient'
 
 const ELIGIBLE_FOR_INTERVIEW = APPLICATION_STATUS_ORDER.slice(1)
 
 const SELECT_CLASSES =
   'rounded-md border border-ink/15 bg-card-fill px-3 py-1.5 text-sm text-ink focus:border-jade focus:outline-none focus:ring-1 focus:ring-jade disabled:opacity-60'
+
+const EDUCATION_LABELS = {
+  highschool: 'High School',
+  bachelors: "Bachelor's degree",
+  masters: "Master's degree",
+  phd: 'PhD',
+}
+
+// Used on the table row, the mobile card, and the profile modal alike — a
+// third inline copy of this made a shared helper worth pulling out.
+function MatchScoreChip({ score, scoreChip }) {
+  if (score === null) return <span className="text-ink/55">—</span>
+
+  const chip = scoreChip(Number(score))
+
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+      style={{
+        backgroundColor: chip.bg,
+        color: chip.text,
+        border: chip.border ? `1.5px solid ${chip.border}` : 'none',
+      }}
+    >
+      {Number(score).toFixed(0)}%
+    </span>
+  )
+}
 
 // First identifying column (Candidate) and the rightmost, most-actionable
 // column (Interview — this table has no column literally named "Actions",
@@ -39,11 +69,9 @@ export default function HrApplicationsPage() {
   const rowHoverColor = badgeStyle === 'outline' ? 'rgba(240, 242, 245, 0.04)' : 'rgba(22, 24, 29, 0.03)'
   const scrollRef = useRef(null)
   const { canScrollLeft, canScrollRight } = useScrollShadow(scrollRef)
-  const [applications, setApplications] = useState([])
-  const [meta, setMeta] = useState(null)
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [actionError, setActionError] = useState('')
   const [jobFilter, setJobFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [updatingId, setUpdatingId] = useState(null)
@@ -53,37 +81,31 @@ export default function HrApplicationsPage() {
   const [scheduleError, setScheduleError] = useState('')
   const [isScheduling, setIsScheduling] = useState(false)
 
-  useEffect(() => {
-    let isCancelled = false
-    setIsLoading(true)
+  const [viewingProfile, setViewingProfile] = useState(null)
 
-    api
-      .get('/applications', { params: { per_page: 100, page } })
-      .then(({ data }) => {
-        if (!isCancelled) {
-          setApplications(data.data)
-          setMeta(data.meta)
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) setError('Unable to load applications. Please try again later.')
-      })
-      .finally(() => {
-        if (!isCancelled) setIsLoading(false)
-      })
+  const queryKey = ['applications', 'hr', page]
 
-    return () => {
-      isCancelled = true
-    }
-  }, [page])
+  const {
+    data,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey,
+    queryFn: () => api.get('/applications', { params: { per_page: 100, page } }).then((res) => res.data),
+    staleTime: STALE_TIME.applications,
+    placeholderData: keepPreviousData,
+  })
+
+  const applications = data?.data ?? []
+  const meta = data?.meta ?? null
 
   const jobs = useMemo(() => {
     const byId = new Map()
-    applications.forEach((application) => {
+    ;(data?.data ?? []).forEach((application) => {
       if (application.job) byId.set(application.job.id, application.job)
     })
     return [...byId.values()]
-  }, [applications])
+  }, [data])
 
   const filteredApplications = applications.filter((application) => {
     if (jobFilter && String(application.job?.id) !== jobFilter) return false
@@ -93,15 +115,19 @@ export default function HrApplicationsPage() {
 
   async function handleStatusChange(application, newStatus) {
     setUpdatingId(application.id)
-    setError('')
+    setActionError('')
 
     try {
       const { data } = await api.patch(`/applications/${application.id}/status`, { status: newStatus })
-      setApplications((previous) =>
-        previous.map((existing) => (existing.id === application.id ? data.data : existing)),
+      queryClient.setQueryData(queryKey, (old) =>
+        old
+          ? { ...old, data: old.data.map((existing) => (existing.id === application.id ? data.data : existing)) }
+          : old,
       )
+      // A status change shifts the HR dashboard's "applications by status" breakdown.
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     } catch (err) {
-      setError(err.response?.data?.message ?? 'Unable to update status. Please try again.')
+      setActionError(err.response?.data?.message ?? 'Unable to update status. Please try again.')
     } finally {
       setUpdatingId(null)
     }
@@ -125,9 +151,18 @@ export default function HrApplicationsPage() {
       })
 
       const { data } = await api.get(`/applications/${schedulingApplication.id}`)
-      setApplications((previous) =>
-        previous.map((existing) => (existing.id === schedulingApplication.id ? data.data : existing)),
+      queryClient.setQueryData(queryKey, (old) =>
+        old
+          ? {
+              ...old,
+              data: old.data.map((existing) => (existing.id === schedulingApplication.id ? data.data : existing)),
+            }
+          : old,
       )
+      // The new interview needs to show up on the (separately cached)
+      // Interviews page, and shifts the HR dashboard's upcoming-interviews count.
+      queryClient.invalidateQueries({ queryKey: ['interviews'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
       closeModal()
     } catch (error) {
       setScheduleError(error.response?.data?.message ?? 'Unable to schedule this interview. Please try again.')
@@ -173,7 +208,9 @@ export default function HrApplicationsPage() {
           </div>
         </div>
 
-        {error && <p className="mt-4 text-rust">{error}</p>}
+        {(isError || actionError) && (
+          <p className="mt-4 text-rust">{actionError || 'Unable to load applications. Please try again later.'}</p>
+        )}
 
         {!isLoading && filteredApplications.length === 0 && (
           <p className="mt-8 text-ink/55">No applications match these filters.</p>
@@ -203,32 +240,22 @@ export default function HrApplicationsPage() {
                     transition={{ duration: 0.15 }}
                   >
                     <td className={`px-6 py-4 font-medium text-ink ${STICKY_LEFT} ${canScrollRight ? SHADOW_RIGHT : ''}`}>
-                      {application.candidate?.name}
+                      <div>{application.candidate?.name}</div>
+                      <button
+                        type="button"
+                        onClick={() => setViewingProfile(application)}
+                        className="mt-0.5 flex items-center gap-1 text-xs font-medium text-jade hover:text-jade-deep"
+                      >
+                        <UserRound size={12} />
+                        View Profile
+                      </button>
                     </td>
                     <td className="px-6 py-4 text-ink/55">{application.job?.title}</td>
                     <td className="px-6 py-4">
                       <StatusBadge status={application.status} theme={applicationStatusTheme} />
                     </td>
                     <td className="px-6 py-4">
-                      {application.match_score !== null ? (
-                        (() => {
-                          const chip = scoreChip(Number(application.match_score))
-                          return (
-                            <span
-                              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                              style={{
-                                backgroundColor: chip.bg,
-                                color: chip.text,
-                                border: chip.border ? `1.5px solid ${chip.border}` : 'none',
-                              }}
-                            >
-                              {Number(application.match_score).toFixed(0)}%
-                            </span>
-                          )
-                        })()
-                      ) : (
-                        <span className="text-ink/55">—</span>
-                      )}
+                      <MatchScoreChip score={application.match_score} scoreChip={scoreChip} />
                     </td>
                     <td className="px-6 py-4 text-ink/55">
                       {new Date(application.applied_at).toLocaleDateString()}
@@ -272,15 +299,20 @@ export default function HrApplicationsPage() {
               Array.from({ length: 4 }).map((_, index) => <TableCardSkeleton key={index} />)}
             {!isLoading &&
               filteredApplications.map((application) => {
-                const chip =
-                  application.match_score !== null ? scoreChip(Number(application.match_score)) : null
-
                 return (
                   <div key={application.id} className="rounded-lg border border-card-ring bg-card-fill p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium text-ink">{application.candidate?.name}</p>
                         <p className="mt-0.5 text-sm text-ink/55">{application.job?.title}</p>
+                        <button
+                          type="button"
+                          onClick={() => setViewingProfile(application)}
+                          className="mt-1 flex items-center gap-1 text-xs font-medium text-jade hover:text-jade-deep"
+                        >
+                          <UserRound size={12} />
+                          View Profile
+                        </button>
                       </div>
                       <StatusBadge status={application.status} theme={applicationStatusTheme} />
                     </div>
@@ -289,20 +321,7 @@ export default function HrApplicationsPage() {
                       <div className="flex justify-between gap-3">
                         <dt className="text-ink/55">Match score</dt>
                         <dd className="text-right text-ink">
-                          {chip ? (
-                            <span
-                              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                              style={{
-                                backgroundColor: chip.bg,
-                                color: chip.text,
-                                border: chip.border ? `1.5px solid ${chip.border}` : 'none',
-                              }}
-                            >
-                              {Number(application.match_score).toFixed(0)}%
-                            </span>
-                          ) : (
-                            '—'
-                          )}
+                          <MatchScoreChip score={application.match_score} scoreChip={scoreChip} />
                         </dd>
                       </div>
                       <div className="flex justify-between gap-3">
@@ -397,6 +416,64 @@ export default function HrApplicationsPage() {
               </div>
             </form>
           )}
+        </Modal>
+      )}
+
+      {viewingProfile && (
+        <Modal title={`${viewingProfile.candidate?.name}'s profile`} onClose={() => setViewingProfile(null)}>
+          <div className="space-y-5">
+            <div>
+              <p className="text-sm text-ink/55">{viewingProfile.candidate?.email}</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <StatusBadge status={viewingProfile.status} theme={applicationStatusTheme} />
+              <span className="text-sm text-ink/55">Match score:</span>
+              <MatchScoreChip score={viewingProfile.match_score} scoreChip={scoreChip} />
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-ink/55">Skills</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {viewingProfile.candidate?.candidate_profile?.skills?.length > 0 ? (
+                  viewingProfile.candidate.candidate_profile.skills.map((skill) => (
+                    <span
+                      key={skill}
+                      className="rounded-full bg-violet-tint px-3 py-1 text-xs font-medium text-violet-deep"
+                    >
+                      {skill}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-ink/40">No skills listed.</span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-ink/55">Education</p>
+                <p className="mt-1 text-ink">
+                  {EDUCATION_LABELS[viewingProfile.candidate?.candidate_profile?.education_level] ?? 'Not specified'}
+                </p>
+              </div>
+              <div>
+                <p className="text-ink/55">Experience</p>
+                <p className="mt-1 text-ink">
+                  {viewingProfile.candidate?.candidate_profile?.years_experience > 0
+                    ? `${viewingProfile.candidate.candidate_profile.years_experience}+ years`
+                    : 'Not specified'}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-ink/55">Resume</p>
+              <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-line rounded-md border border-ink/10 bg-canvas p-3 text-sm text-ink/80">
+                {viewingProfile.candidate?.candidate_profile?.resume_text || 'No resume text provided.'}
+              </p>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

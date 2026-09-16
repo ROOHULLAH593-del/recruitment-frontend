@@ -19,13 +19,13 @@ export default function Modal({ title, onClose, children }) {
   }
 
   return (
-    <div ref={overlayRef} className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">
+    <div ref={overlayRef} className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 py-6">
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-md rounded-lg border border-ink/10 bg-surface-elevated p-6"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-ink/10 bg-surface-elevated p-6"
       >
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl text-ink">{title}</h2>
