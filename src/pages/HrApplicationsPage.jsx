@@ -1,10 +1,11 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { CalendarClock, UserRound } from 'lucide-react'
+import { CalendarClock, Sparkles, UserRound } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import Pagination from '../components/Pagination'
+import ScoreChip, { AiSemanticMatchChip } from '../components/ScoreChip'
 import Select from '../components/Select'
 import TableCardSkeleton from '../components/skeletons/TableCardSkeleton'
 import TableRowSkeleton from '../components/skeletons/TableRowSkeleton'
@@ -27,27 +28,6 @@ const EDUCATION_LABELS = {
   phd: 'PhD',
 }
 
-// Used on the table row, the mobile card, and the profile modal alike — a
-// third inline copy of this made a shared helper worth pulling out.
-function MatchScoreChip({ score, scoreChip }) {
-  if (score === null) return <span className="text-ink/55">—</span>
-
-  const chip = scoreChip(Number(score))
-
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-      style={{
-        backgroundColor: chip.bg,
-        color: chip.text,
-        border: chip.border ? `1.5px solid ${chip.border}` : 'none',
-      }}
-    >
-      {Number(score).toFixed(0)}%
-    </span>
-  )
-}
-
 // First identifying column (Candidate) and the rightmost, most-actionable
 // column (Interview — this table has no column literally named "Actions",
 // but it's the one holding the Schedule Interview button) stay pinned while
@@ -61,7 +41,7 @@ const SHADOW_RIGHT = 'shadow-[6px_0_8px_-6px_rgba(0,0,0,0.12)]'
 const SHADOW_LEFT = 'shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]'
 
 export default function HrApplicationsPage() {
-  const { applicationStatusTheme, interviewStatusTheme, scoreChip, badgeStyle } = useThemeColors()
+  const { applicationStatusTheme, interviewStatusTheme, badgeStyle } = useThemeColors()
   // A hardcoded near-black tint reads correctly on every light-canvas theme
   // but is the wrong direction on "dark" (darkening an already near-black
   // row is imperceptible) — `badgeStyle === 'outline'` is currently a
@@ -225,6 +205,12 @@ export default function HrApplicationsPage() {
                   <th className="px-6 py-3 font-medium">Job</th>
                   <th className="px-6 py-3 font-medium">Status</th>
                   <th className="px-6 py-3 font-medium">Match score</th>
+                  <th className="px-6 py-3 font-medium">
+                    <span className="flex items-center gap-1">
+                      <Sparkles size={12} />
+                      AI Semantic Match
+                    </span>
+                  </th>
                   <th className="px-6 py-3 font-medium">Applied</th>
                   <th className="px-6 py-3 font-medium">Update status</th>
                   <th className={`px-6 py-3 font-medium ${STICKY_RIGHT} ${canScrollLeft ? SHADOW_LEFT : ''}`}>Interview</th>
@@ -232,7 +218,7 @@ export default function HrApplicationsPage() {
               </thead>
               <tbody className="divide-y divide-ink/5 text-sm">
                 {isLoading
-                  ? Array.from({ length: 6 }).map((_, index) => <TableRowSkeleton key={index} columns={7} />)
+                  ? Array.from({ length: 6 }).map((_, index) => <TableRowSkeleton key={index} columns={8} />)
                   : filteredApplications.map((application) => (
                   <motion.tr
                     key={application.id}
@@ -255,7 +241,10 @@ export default function HrApplicationsPage() {
                       <StatusBadge status={application.status} theme={applicationStatusTheme} />
                     </td>
                     <td className="px-6 py-4">
-                      <MatchScoreChip score={application.match_score} scoreChip={scoreChip} />
+                      <ScoreChip score={application.match_score} />
+                    </td>
+                    <td className="px-6 py-4">
+                      <AiSemanticMatchChip score={application.semantic_match_score} />
                     </td>
                     <td className="px-6 py-4 text-ink/55">
                       {new Date(application.applied_at).toLocaleDateString()}
@@ -321,7 +310,16 @@ export default function HrApplicationsPage() {
                       <div className="flex justify-between gap-3">
                         <dt className="text-ink/55">Match score</dt>
                         <dd className="text-right text-ink">
-                          <MatchScoreChip score={application.match_score} scoreChip={scoreChip} />
+                          <ScoreChip score={application.match_score} />
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="flex items-center gap-1 text-ink/55">
+                          <Sparkles size={12} />
+                          AI Semantic Match
+                        </dt>
+                        <dd className="text-right text-ink">
+                          <AiSemanticMatchChip score={application.semantic_match_score} />
                         </dd>
                       </div>
                       <div className="flex justify-between gap-3">
@@ -429,7 +427,13 @@ export default function HrApplicationsPage() {
             <div className="flex flex-wrap items-center gap-3">
               <StatusBadge status={viewingProfile.status} theme={applicationStatusTheme} />
               <span className="text-sm text-ink/55">Match score:</span>
-              <MatchScoreChip score={viewingProfile.match_score} scoreChip={scoreChip} />
+              <ScoreChip score={viewingProfile.match_score} />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Sparkles size={13} className="text-violet-deep" />
+              <span className="text-sm text-ink/55">AI Semantic Match:</span>
+              <AiSemanticMatchChip score={viewingProfile.semantic_match_score} />
             </div>
 
             <div>

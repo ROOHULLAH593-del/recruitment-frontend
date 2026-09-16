@@ -1,8 +1,10 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
+import { Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Pagination from '../components/Pagination'
+import ScoreChip, { AiSemanticMatchChip } from '../components/ScoreChip'
 import ApplicationCardSkeleton from '../components/skeletons/ApplicationCardSkeleton'
 import StatusBadge from '../components/StatusBadge'
 import { useThemeColors } from '../hooks/useThemeColors'
@@ -10,7 +12,7 @@ import api from '../lib/axios'
 import { STALE_TIME } from '../lib/queryClient'
 
 export default function DashboardPage() {
-  const { applicationStatusTheme, scoreChip } = useThemeColors()
+  const { applicationStatusTheme } = useThemeColors()
   const [page, setPage] = useState(1)
 
   const {
@@ -54,8 +56,6 @@ export default function DashboardPage() {
           {isLoading
             ? Array.from({ length: 3 }).map((_, index) => <ApplicationCardSkeleton key={index} />)
             : applications.map((application) => {
-                const chip = application.match_score !== null ? scoreChip(Number(application.match_score)) : null
-
                 return (
                   <motion.div
                     key={application.id}
@@ -78,22 +78,16 @@ export default function DashboardPage() {
                       <StatusBadge status={application.status} theme={applicationStatusTheme} />
                     </div>
 
-                    <div className="mt-4 flex items-center gap-2 text-sm text-ink/55">
-                      Match score:
-                      {chip ? (
-                        <span
-                          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                          style={{
-                            backgroundColor: chip.bg,
-                            color: chip.text,
-                            border: chip.border ? `1.5px solid ${chip.border}` : 'none',
-                          }}
-                        >
-                          {Number(application.match_score).toFixed(0)}%
-                        </span>
-                      ) : (
-                        <span>—</span>
-                      )}
+                    <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink/55">
+                      <div className="flex items-center gap-2">
+                        Match score:
+                        <ScoreChip score={application.match_score} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={13} className="text-violet-deep" />
+                        AI Semantic Match:
+                        <AiSemanticMatchChip score={application.semantic_match_score} />
+                      </div>
                     </div>
                   </motion.div>
                 )
