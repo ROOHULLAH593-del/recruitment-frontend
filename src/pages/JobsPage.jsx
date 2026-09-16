@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Building2, GalleryHorizontal, LayoutGrid, MapPin, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -7,6 +8,7 @@ import Pagination from '../components/Pagination'
 import JobCardSkeleton from '../components/skeletons/JobCardSkeleton'
 import api from '../lib/axios'
 import { formatSalaryRange } from '../lib/format'
+import { STALE_TIME } from '../lib/queryClient'
 
 const MotionLink = motion.create(Link)
 
@@ -113,12 +115,8 @@ function ViewModeToggle({ viewMode, onChange }) {
 
 export default function JobsPage() {
   const [viewMode, setViewMode] = useState(readStoredViewMode)
-  const [jobs, setJobs] = useState([])
-  const [meta, setMeta] = useState(null)
   const [page, setPage] = useState(1)
   const [direction, setDirection] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
 
   useEffect(() => {
     try {
@@ -129,31 +127,20 @@ export default function JobsPage() {
     }
   }, [viewMode])
 
-  useEffect(() => {
-    let isCancelled = false
-    setIsLoading(true)
+  const perPage = viewMode === 'carousel' ? CAROUSEL_PER_PAGE : GRID_PER_PAGE
 
-    const perPage = viewMode === 'carousel' ? CAROUSEL_PER_PAGE : GRID_PER_PAGE
+  const {
+    data,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ['jobs', viewMode, page],
+    queryFn: () => api.get('/jobs', { params: { page, per_page: perPage } }).then((res) => res.data),
+    staleTime: STALE_TIME.jobPostings,
+  })
 
-    api
-      .get('/jobs', { params: { page, per_page: perPage } })
-      .then(({ data }) => {
-        if (!isCancelled) {
-          setJobs(data.data)
-          setMeta(data.meta)
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) setError('Unable to load job postings. Please try again later.')
-      })
-      .finally(() => {
-        if (!isCancelled) setIsLoading(false)
-      })
-
-    return () => {
-      isCancelled = true
-    }
-  }, [page, viewMode])
+  const jobs = data?.data ?? []
+  const meta = data?.meta ?? null
 
   function goToPage(nextPage) {
     setDirection(nextPage > page ? 1 : -1)
@@ -177,9 +164,9 @@ export default function JobsPage() {
 
         <ViewModeToggle viewMode={viewMode} onChange={changeViewMode} />
 
-        {error && <p className="mt-10 text-rust">{error}</p>}
+        {isError && <p className="mt-10 text-rust">Unable to load job postings. Please try again later.</p>}
 
-        {!isLoading && !error && jobs.length === 0 && (
+        {!isLoading && !isError && jobs.length === 0 && (
           <p className="mt-10 text-ink/55">No open positions right now. Check back soon.</p>
         )}
 

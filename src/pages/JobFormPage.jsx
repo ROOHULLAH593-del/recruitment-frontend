@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/Button'
@@ -40,13 +41,13 @@ export default function JobFormPage() {
   const { id } = useParams()
   const isEditMode = Boolean(id)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [isLoading, setIsLoading] = useState(isEditMode)
   const [loadError, setLoadError] = useState('')
   const [errors, setErrors] = useState({})
   const [generalError, setGeneralError] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (!isEditMode) return
@@ -88,13 +89,33 @@ export default function JobFormPage() {
     setForm((previous) => ({ ...previous, [name]: value }))
   }
 
-  async function handleSubmit(event) {
+  const mutation = useMutation({
+    mutationFn: (payload) => (isEditMode ? api.put(`/jobs/${id}`, payload) : api.post('/jobs', payload)),
+    onSuccess: () => {
+      // Job postings are cached under several different keys — HR's manage
+      // list, the public Jobs board, and a single job's detail page — but
+      // every one of them starts with 'jobs', so this one call reaches all
+      // of them instead of waiting out each page's own staleTime. A new or
+      // edited job's status also feeds the HR dashboard's "open jobs" count.
+      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      navigate('/hr/jobs')
+    },
+    onError: (error) => {
+      if (error.response?.status === 422) {
+        setErrors(error.response.data.errors ?? {})
+      } else {
+        setGeneralError(error.response?.data?.message ?? 'Unable to save this job posting. Please try again.')
+      }
+    },
+  })
+
+  function handleSubmit(event) {
     event.preventDefault()
     setErrors({})
     setGeneralError('')
-    setIsSubmitting(true)
 
-    const payload = {
+    mutation.mutate({
       title: form.title,
       description: form.description,
       department: form.department || null,
@@ -108,24 +129,7 @@ export default function JobFormPage() {
       salary_max: form.salary_max === '' ? null : Number(form.salary_max),
       location: form.location || null,
       status: form.status,
-    }
-
-    try {
-      if (isEditMode) {
-        await api.put(`/jobs/${id}`, payload)
-      } else {
-        await api.post('/jobs', payload)
-      }
-      navigate('/hr/jobs')
-    } catch (error) {
-      if (error.response?.status === 422) {
-        setErrors(error.response.data.errors ?? {})
-      } else {
-        setGeneralError(error.response?.data?.message ?? 'Unable to save this job posting. Please try again.')
-      }
-    } finally {
-      setIsSubmitting(false)
-    }
+    })
   }
 
   return (
@@ -252,8 +256,8 @@ export default function JobFormPage() {
             {generalError && <p className="text-sm text-rust">{generalError}</p>}
 
             <div className="flex items-center gap-3">
-              <Button type="submit" variant="primary" loading={isSubmitting}>
-                {isSubmitting ? 'Saving…' : isEditMode ? 'Save changes' : 'Create posting'}
+              <Button type="submit" variant="primary" loading={mutation.isPending}>
+                {mutation.isPending ? 'Saving…' : isEditMode ? 'Save changes' : 'Create posting'}
               </Button>
               <Link to="/hr/jobs" className="text-sm font-medium text-ink/55 hover:text-ink">
                 Cancel

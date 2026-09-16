@@ -1,8 +1,10 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Copy } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useThemeColors } from '../hooks/useThemeColors'
 import { useToast } from '../hooks/useToast'
 import api from '../lib/axios'
+import { STALE_TIME } from '../lib/queryClient'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import Select from './Select'
@@ -79,32 +81,31 @@ async function copyToClipboard(text) {
 export default function HrInvitationsPanel() {
   const { palette, badgeStyle } = useThemeColors()
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
 
   const [roleOffered, setRoleOffered] = useState('hr')
   const [isCreating, setIsCreating] = useState(false)
   const [createdLink, setCreatedLink] = useState(null)
   const [justCopiedCreated, setJustCopiedCreated] = useState(false)
 
-  const [invitations, setInvitations] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
   const [actingId, setActingId] = useState(null)
   const [confirmingReject, setConfirmingReject] = useState(null)
 
-  function loadInvitations() {
-    setIsLoading(true)
-    setLoadError('')
+  const {
+    data,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ['invitations'],
+    queryFn: () => api.get('/admin/invitations', { params: { per_page: 100 } }).then((res) => res.data),
+    staleTime: STALE_TIME.invitations,
+  })
 
-    api
-      .get('/admin/invitations', { params: { per_page: 100 } })
-      .then(({ data }) => setInvitations(data.data))
-      .catch(() => setLoadError('Unable to load invitations. Please try again later.'))
-      .finally(() => setIsLoading(false))
+  const invitations = data?.data ?? []
+
+  function refreshInvitations() {
+    queryClient.invalidateQueries({ queryKey: ['invitations'] })
   }
-
-  useEffect(() => {
-    loadInvitations()
-  }, [])
 
   async function handleCreate(event) {
     event.preventDefault()
@@ -115,7 +116,7 @@ export default function HrInvitationsPanel() {
     try {
       const { data } = await api.post('/admin/invitations', { role_offered: roleOffered })
       setCreatedLink(`${window.location.origin}/staff/join/${data.data.token}`)
-      loadInvitations()
+      refreshInvitations()
     } catch (error) {
       showToast(error.response?.data?.message ?? 'Unable to create invitation.', 'negative')
     } finally {
@@ -148,7 +149,7 @@ export default function HrInvitationsPanel() {
     try {
       await api.post(`/admin/invitations/${invitation.id}/accept`)
       showToast(`${invitation.applicant_name} was added as ${ROLE_LABELS[invitation.role_offered]}.`, 'positive')
-      loadInvitations()
+      refreshInvitations()
     } catch (error) {
       showToast(error.response?.data?.message ?? 'Unable to accept this invitation.', 'negative')
     } finally {
@@ -162,7 +163,7 @@ export default function HrInvitationsPanel() {
     try {
       await api.post(`/admin/invitations/${invitation.id}/reject`)
       showToast('Invitation rejected.', 'positive')
-      loadInvitations()
+      refreshInvitations()
     } catch (error) {
       showToast(error.response?.data?.message ?? 'Unable to reject this invitation.', 'negative')
     } finally {
@@ -218,8 +219,8 @@ export default function HrInvitationsPanel() {
       <div>
         <p className="text-xs font-medium text-ink/50">All invitations</p>
 
-        {loadError && <p className="mt-3 text-sm text-rust">{loadError}</p>}
-        {!isLoading && !loadError && invitations.length === 0 && (
+        {isError && <p className="mt-3 text-sm text-rust">Unable to load invitations. Please try again later.</p>}
+        {!isLoading && !isError && invitations.length === 0 && (
           <p className="mt-3 text-sm text-ink/55">No invitations yet.</p>
         )}
 

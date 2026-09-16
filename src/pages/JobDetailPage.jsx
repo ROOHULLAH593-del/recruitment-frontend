@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/Button'
 import JobDetailSkeleton from '../components/skeletons/JobDetailSkeleton'
@@ -7,6 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useThemeColors } from '../hooks/useThemeColors'
 import api from '../lib/axios'
 import { formatSalaryRange } from '../lib/format'
+import { STALE_TIME } from '../lib/queryClient'
 
 const EDUCATION_LABELS = {
   highschool: 'High School',
@@ -21,39 +23,23 @@ export default function JobDetailPage() {
   const { jobStatusTheme } = useThemeColors()
   const navigate = useNavigate()
   const location = useLocation()
-
-  const [job, setJob] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
-  const [loadError, setLoadError] = useState('')
+  const queryClient = useQueryClient()
 
   const [applyState, setApplyState] = useState('idle')
   const [applyError, setApplyError] = useState('')
 
-  useEffect(() => {
-    let isCancelled = false
+  const {
+    data: job,
+    isLoading,
+    error: loadErrorObj,
+  } = useQuery({
+    queryKey: ['jobs', 'detail', id],
+    queryFn: () => api.get(`/jobs/${id}`).then((res) => res.data.data),
+    staleTime: STALE_TIME.jobPostings,
+  })
 
-    api
-      .get(`/jobs/${id}`)
-      .then(({ data }) => {
-        if (!isCancelled) setJob(data.data)
-      })
-      .catch((error) => {
-        if (isCancelled) return
-        if (error.response?.status === 404) {
-          setNotFound(true)
-        } else {
-          setLoadError('Unable to load this job posting. Please try again later.')
-        }
-      })
-      .finally(() => {
-        if (!isCancelled) setIsLoading(false)
-      })
-
-    return () => {
-      isCancelled = true
-    }
-  }, [id])
+  const notFound = loadErrorObj?.response?.status === 404
+  const loadError = loadErrorObj && !notFound ? 'Unable to load this job posting. Please try again later.' : ''
 
   async function handleApply() {
     if (!isAuthenticated) {
@@ -66,6 +52,9 @@ export default function JobDetailPage() {
 
     try {
       await api.post(`/jobs/${id}/apply`)
+      // The candidate's own applications list (DashboardPage) needs to pick
+      // up this new application without waiting out its staleTime.
+      queryClient.invalidateQueries({ queryKey: ['applications', 'mine'] })
       setApplyState('success')
     } catch (error) {
       if (error.response?.status === 409) {

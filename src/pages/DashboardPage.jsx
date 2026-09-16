@@ -1,43 +1,36 @@
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Pagination from '../components/Pagination'
 import ApplicationCardSkeleton from '../components/skeletons/ApplicationCardSkeleton'
 import StatusBadge from '../components/StatusBadge'
 import { useThemeColors } from '../hooks/useThemeColors'
 import api from '../lib/axios'
+import { STALE_TIME } from '../lib/queryClient'
 
 export default function DashboardPage() {
   const { applicationStatusTheme, scoreChip } = useThemeColors()
-  const [applications, setApplications] = useState([])
-  const [meta, setMeta] = useState(null)
   const [page, setPage] = useState(1)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
 
-  useEffect(() => {
-    let isCancelled = false
-    setIsLoading(true)
+  const {
+    data,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ['applications', 'mine', page],
+    queryFn: () => api.get('/applications', { params: { page } }).then((res) => res.data),
+    staleTime: STALE_TIME.applications,
+    // Keeps the current page's rows on screen while a new page loads
+    // instead of dropping to skeletons on every page change — the same
+    // "don't flash a loading state over content the user can already see"
+    // principle this whole migration is about, just applied within a page
+    // of results too, not only between visits.
+    placeholderData: keepPreviousData,
+  })
 
-    api
-      .get('/applications', { params: { page } })
-      .then(({ data }) => {
-        if (!isCancelled) {
-          setApplications(data.data)
-          setMeta(data.meta)
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) setError('Unable to load your applications. Please try again later.')
-      })
-      .finally(() => {
-        if (!isCancelled) setIsLoading(false)
-      })
-
-    return () => {
-      isCancelled = true
-    }
-  }, [page])
+  const applications = data?.data ?? []
+  const meta = data?.meta ?? null
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -45,9 +38,9 @@ export default function DashboardPage() {
         <h1 className="font-display text-3xl text-ink">My applications</h1>
         <p className="mt-1 text-sm text-ink/50">Track the status of jobs you&apos;ve applied to.</p>
 
-        {error && <p className="mt-8 text-rust">{error}</p>}
+        {isError && <p className="mt-8 text-rust">Unable to load your applications. Please try again later.</p>}
 
-        {!isLoading && !error && applications.length === 0 && (
+        {!isLoading && !isError && applications.length === 0 && (
           <p className="mt-8 text-ink/55">
             You haven&apos;t applied to any jobs yet.{' '}
             <Link to="/jobs" className="font-medium text-jade hover:text-jade-deep">

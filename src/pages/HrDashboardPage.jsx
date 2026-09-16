@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import StatCard from '../components/StatCard'
 import SkeletonBlock from '../components/skeletons/SkeletonBlock'
 import StatCardSkeleton from '../components/skeletons/StatCardSkeleton'
@@ -6,32 +6,16 @@ import StatusBadge from '../components/StatusBadge'
 import { useThemeColors } from '../hooks/useThemeColors'
 import api from '../lib/axios'
 import { APPLICATION_STATUS_ORDER } from '../lib/applicationStatus'
+import { STALE_TIME } from '../lib/queryClient'
 
 export default function HrDashboardPage() {
   const { applicationStatusTheme } = useThemeColors()
-  const [stats, setStats] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
 
-  useEffect(() => {
-    let isCancelled = false
-
-    api
-      .get('/dashboard/stats')
-      .then(({ data }) => {
-        if (!isCancelled) setStats(data)
-      })
-      .catch(() => {
-        if (!isCancelled) setError('Unable to load dashboard stats. Please try again later.')
-      })
-      .finally(() => {
-        if (!isCancelled) setIsLoading(false)
-      })
-
-    return () => {
-      isCancelled = true
-    }
-  }, [])
+  const { data: stats, isLoading, isError } = useQuery({
+    queryKey: ['dashboard-stats', 'hr'],
+    queryFn: () => api.get('/dashboard/stats').then((res) => res.data),
+    staleTime: STALE_TIME.dashboardStats,
+  })
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -40,7 +24,7 @@ export default function HrDashboardPage() {
           HR dashboard. <span className="text-ink/50">An overview of hiring activity across the organization.</span>
         </h1>
 
-        {error && <p className="mt-8 text-rust">{error}</p>}
+        {isError && <p className="mt-8 text-rust">Unable to load dashboard stats. Please try again later.</p>}
 
         {isLoading && (
           <>

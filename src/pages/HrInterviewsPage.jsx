@@ -1,5 +1,6 @@
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import Pagination from '../components/Pagination'
@@ -11,6 +12,7 @@ import { useScrollShadow } from '../hooks/useScrollShadow'
 import { useThemeColors } from '../hooks/useThemeColors'
 import api from '../lib/axios'
 import { INTERVIEW_STATUS_LABELS, INTERVIEW_STATUS_ORDER } from '../lib/interviewStatus'
+import { STALE_TIME } from '../lib/queryClient'
 
 const SELECT_CLASSES =
   'rounded-md border border-ink/15 bg-card-fill px-3 py-1.5 text-sm text-ink focus:border-jade focus:outline-none focus:ring-1 focus:ring-jade disabled:opacity-60'
@@ -42,11 +44,9 @@ export default function HrInterviewsPage() {
   const rowHoverColor = badgeStyle === 'outline' ? 'rgba(240, 242, 245, 0.04)' : 'rgba(22, 24, 29, 0.03)'
   const scrollRef = useRef(null)
   const { canScrollLeft, canScrollRight } = useScrollShadow(scrollRef)
-  const [interviews, setInterviews] = useState([])
-  const [meta, setMeta] = useState(null)
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [actionError, setActionError] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [updatingId, setUpdatingId] = useState(null)
   const [updatingAction, setUpdatingAction] = useState(null)
@@ -56,42 +56,40 @@ export default function HrInterviewsPage() {
   const [rescheduleError, setRescheduleError] = useState('')
   const [isRescheduling, setIsRescheduling] = useState(false)
 
-  useEffect(() => {
-    let isCancelled = false
-    setIsLoading(true)
+  const queryKey = ['interviews', 'hr', page]
 
-    api
-      .get('/interviews', { params: { per_page: 100, page } })
-      .then(({ data }) => {
-        if (!isCancelled) {
-          setInterviews(data.data)
-          setMeta(data.meta)
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) setError('Unable to load interviews. Please try again later.')
-      })
-      .finally(() => {
-        if (!isCancelled) setIsLoading(false)
-      })
+  const {
+    data,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey,
+    queryFn: () => api.get('/interviews', { params: { per_page: 100, page } }).then((res) => res.data),
+    staleTime: STALE_TIME.interviews,
+    placeholderData: keepPreviousData,
+  })
 
-    return () => {
-      isCancelled = true
-    }
-  }, [page])
+  const interviews = data?.data ?? []
+  const meta = data?.meta ?? null
 
   const filteredInterviews = interviews.filter((interview) => !statusFilter || interview.status === statusFilter)
 
   async function updateStatus(interview, status) {
     setUpdatingId(interview.id)
     setUpdatingAction(status)
-    setError('')
+    setActionError('')
 
     try {
       const { data } = await api.patch(`/interviews/${interview.id}`, { status })
-      setInterviews((previous) => previous.map((existing) => (existing.id === interview.id ? data.data : existing)))
+      queryClient.setQueryData(queryKey, (old) =>
+        old ? { ...old, data: old.data.map((existing) => (existing.id === interview.id ? data.data : existing)) } : old,
+      )
+      // HrApplicationsPage shows this same interview's status inline, and
+      // completing/cancelling one shifts the HR dashboard's upcoming count.
+      queryClient.invalidateQueries({ queryKey: ['applications'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     } catch (err) {
-      setError(err.response?.data?.message ?? 'Unable to update this interview. Please try again.')
+      setActionError(err.response?.data?.message ?? 'Unable to update this interview. Please try again.')
     } finally {
       setUpdatingId(null)
       setUpdatingAction(null)
@@ -114,9 +112,19 @@ export default function HrInterviewsPage() {
         status: 'rescheduled',
         scheduled_at: new Date(rescheduleDate).toISOString(),
       })
-      setInterviews((previous) =>
-        previous.map((existing) => (existing.id === reschedulingInterview.id ? data.data : existing)),
+      queryClient.setQueryData(queryKey, (old) =>
+        old
+          ? {
+              ...old,
+              data: old.data.map((existing) => (existing.id === reschedulingInterview.id ? data.data : existing)),
+            }
+          : old,
       )
+      // Same reasoning as updateStatus above: applications shows this
+      // interview's status inline, and the new date can shift the
+      // dashboard's "upcoming interviews (7 days)" count.
+      queryClient.invalidateQueries({ queryKey: ['applications'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
       closeModal()
     } catch (error) {
       setRescheduleError(error.response?.data?.message ?? 'Unable to reschedule this interview. Please try again.')
@@ -150,7 +158,9 @@ export default function HrInterviewsPage() {
           </div>
         </div>
 
-        {error && <p className="mt-4 text-rust">{error}</p>}
+        {(isError || actionError) && (
+          <p className="mt-4 text-rust">{actionError || 'Unable to load interviews. Please try again later.'}</p>
+        )}
 
         {!isLoading && filteredInterviews.length === 0 && (
           <p className="mt-8 text-ink/55">No interviews match this filter.</p>

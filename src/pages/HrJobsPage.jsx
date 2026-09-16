@@ -1,6 +1,7 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Plus } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Button from '../components/Button'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -13,6 +14,7 @@ import { useScrollShadow } from '../hooks/useScrollShadow'
 import { useThemeColors } from '../hooks/useThemeColors'
 import { useToast } from '../hooks/useToast'
 import api from '../lib/axios'
+import { STALE_TIME } from '../lib/queryClient'
 
 const MotionLink = motion.create(Link)
 const TAP_SPRING = { type: 'spring', stiffness: 400, damping: 17 }
@@ -38,37 +40,24 @@ export default function HrJobsPage() {
   const { showToast } = useToast()
   const scrollRef = useRef(null)
   const { canScrollLeft, canScrollRight } = useScrollShadow(scrollRef)
-  const [jobs, setJobs] = useState([])
-  const [meta, setMeta] = useState(null)
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  const [deleteError, setDeleteError] = useState('')
   const [confirmingJob, setConfirmingJob] = useState(null)
 
-  useEffect(() => {
-    let isCancelled = false
-    setIsLoading(true)
+  const {
+    data,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ['jobs', 'hr', page],
+    queryFn: () => api.get('/jobs', { params: { page } }).then((res) => res.data),
+    staleTime: STALE_TIME.jobPostings,
+  })
 
-    api
-      .get('/jobs', { params: { page } })
-      .then(({ data }) => {
-        if (!isCancelled) {
-          setJobs(data.data)
-          setMeta(data.meta)
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) setError('Unable to load job postings. Please try again later.')
-      })
-      .finally(() => {
-        if (!isCancelled) setIsLoading(false)
-      })
-
-    return () => {
-      isCancelled = true
-    }
-  }, [page])
+  const jobs = data?.data ?? []
+  const meta = data?.meta ?? null
 
   // assistant_hr is view-only on job postings (no create/edit/delete, see
   // JobPostingPolicy on the backend) but still needs to see the full list to
@@ -83,14 +72,21 @@ export default function HrJobsPage() {
 
   async function confirmDelete(job) {
     setDeletingId(job.id)
-    setError('')
+    setDeleteError('')
 
     try {
       await api.delete(`/jobs/${job.id}`)
-      setJobs((previous) => previous.filter((existing) => existing.id !== job.id))
+      queryClient.setQueryData(['jobs', 'hr', page], (old) =>
+        old ? { ...old, data: old.data.filter((existing) => existing.id !== job.id) } : old,
+      )
+      // The instant patch above only covers this page's own cached list —
+      // the public Jobs board and this job's own detail page are cached
+      // separately and need to stop showing a job that no longer exists too.
+      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
       showToast(`"${job.title}" was deleted.`, 'positive')
     } catch (error) {
-      setError(error.response?.data?.message ?? 'Unable to delete this job posting. Please try again.')
+      setDeleteError(error.response?.data?.message ?? 'Unable to delete this job posting. Please try again.')
     } finally {
       setDeletingId(null)
     }
@@ -115,7 +111,9 @@ export default function HrJobsPage() {
           )}
         </div>
 
-        {error && <p className="mt-8 text-rust">{error}</p>}
+        {(isError || deleteError) && (
+          <p className="mt-8 text-rust">{deleteError || 'Unable to load job postings. Please try again later.'}</p>
+        )}
 
         {!isLoading && visibleJobs.length === 0 && <p className="mt-8 text-ink/55">No job postings yet.</p>}
 
