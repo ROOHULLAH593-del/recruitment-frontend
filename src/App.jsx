@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import ProtectedRoute from './components/ProtectedRoute'
+import ScrollToTopButton from './components/ScrollToTopButton'
 import { useScrollRestoration } from './hooks/useScrollRestoration'
 import DashboardPage from './pages/DashboardPage'
 import HrApplicationsPage from './pages/HrApplicationsPage'
@@ -121,6 +122,7 @@ function App() {
           </Routes>
         </motion.div>
       </AnimatePresence>
+      <ScrollToTopButton />
     </>
   )
 }
