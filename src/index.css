@@ -338,3 +338,35 @@ button:disabled,
 ::-webkit-scrollbar-thumb:hover {
   background-color: color-mix(in srgb, var(--color-ink) 35%, transparent);
 }
+
+/*
+ * Scoped opt-out from the always-visible scrollbar above, for the one place
+ * that shouldn't compete with its own content at rest: the Jobs carousel's
+ * dot-pagination track (CarouselPagination.jsx) exists purely to keep every
+ * dot reachable on a job set with many pages, not to be a scrollbar users
+ * are meant to notice — so it stays invisible until they actually hover the
+ * dots area, then fades in at the same thin/subtle weight as every other
+ * scrollbar in the app. Every other scrollable area (HR tables, etc.) is
+ * untouched, still always-visible via the global rules above.
+ */
+.scrollbar-hover-reveal {
+  scrollbar-color: transparent transparent;
+}
+
+.scrollbar-hover-reveal:hover {
+  scrollbar-color: color-mix(in srgb, var(--color-ink) 25%, transparent) transparent;
+}
+
+.scrollbar-hover-reveal::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+.scrollbar-hover-reveal::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.scrollbar-hover-reveal:hover::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--color-ink) 20%, transparent);
+  border-color: var(--color-canvas);
+}

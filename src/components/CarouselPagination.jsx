@@ -39,10 +39,13 @@ export default function CarouselPagination({ meta, onPageChange }) {
         overflows a phone screen) — scrolling this strip in its own bounded
         track keeps every dot reachable and keeps the arrows themselves from
         ever being pushed off-screen, instead of the whole layout stretching
-        wider than the viewport. `scrollbar-none`-style hiding isn't attempted
-        here so the affordance that it scrolls stays visible.
+        wider than the viewport. The scrollbar itself stays invisible at rest
+        (scrollbar-hover-reveal, in index.css) so it doesn't compete with the
+        dots for attention, fading in at the same thin/subtle weight as every
+        other scrollbar in the app once the user actually hovers this area —
+        the affordance that it scrolls is still there, just not shouted.
       */}
-      <div className="flex max-w-[55vw] items-center gap-2 overflow-x-auto px-1 py-1 sm:max-w-xs">
+      <div className="scrollbar-hover-reveal flex max-w-[55vw] items-center gap-2 overflow-x-auto px-1 py-1 sm:max-w-xs">
         {Array.from({ length: lastPage }).map((_, index) => {
           const pageNumber = index + 1
           const isActive = pageNumber === currentPage
