@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Building2, GalleryHorizontal, LayoutGrid, MapPin, Wallet } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigationType } from 'react-router-dom'
 import CarouselPagination from '../components/CarouselPagination'
 import Pagination from '../components/Pagination'
 import JobCardSkeleton from '../components/skeletons/JobCardSkeleton'
@@ -18,6 +18,18 @@ const GRID_PER_PAGE = 12
 const VIEW_STORAGE_KEY = 'jobsViewMode'
 const AVAILABLE_VIEWS = ['carousel', 'grid']
 const DEFAULT_VIEW = 'carousel'
+
+// Keyed by history-entry (location.key), same mechanism and rationale as
+// useScrollRestoration's position map: a PUSH always mints a brand-new key
+// (so a fresh nav-menu visit to /jobs naturally finds nothing here and
+// starts at page 1), while a POP back to a previously-left /jobs entry
+// reuses that same key and finds what was left behind. In-memory only (a
+// module-level Map, not a ref — JobsPage itself unmounts on navigation,
+// unlike the App-level scroll-restoration hook), since this only needs to
+// survive back/forward within the current tab's session, not a reload.
+// Bundles page with viewMode (not just page) so a restore can never mix a
+// page number from one view's pagination with the other view's per_page.
+const rememberedPageState = new Map()
 
 // Same read-with-validation-and-fallback shape as ThemeContext's own
 // localStorage persistence — a stray/corrupted value degrades to the
@@ -114,8 +126,12 @@ function ViewModeToggle({ viewMode, onChange }) {
 }
 
 export default function JobsPage() {
-  const [viewMode, setViewMode] = useState(readStoredViewMode)
-  const [page, setPage] = useState(1)
+  const location = useLocation()
+  const navigationType = useNavigationType()
+  const remembered = navigationType === 'POP' ? rememberedPageState.get(location.key) : undefined
+
+  const [viewMode, setViewMode] = useState(() => remembered?.viewMode ?? readStoredViewMode())
+  const [page, setPage] = useState(() => remembered?.page ?? 1)
   const [direction, setDirection] = useState(0)
 
   useEffect(() => {
@@ -126,6 +142,23 @@ export default function JobsPage() {
       // chosen view still applies this session, it just won't be remembered.
     }
   }, [viewMode])
+
+  // Kept current via its own no-dependency effect (never mutated directly
+  // during render — react-hooks/refs flags that) rather than depending on
+  // [page, viewMode] directly in the effect below, so that one doesn't
+  // re-run on every page click — only the latest values at the moment of
+  // actual unmount matter.
+  const latestRef = useRef({ page, viewMode })
+  useEffect(() => {
+    latestRef.current = { page, viewMode }
+  })
+
+  useEffect(() => {
+    const key = location.key
+    return () => {
+      rememberedPageState.set(key, latestRef.current)
+    }
+  }, [location.key])
 
   const perPage = viewMode === 'carousel' ? CAROUSEL_PER_PAGE : GRID_PER_PAGE
 
