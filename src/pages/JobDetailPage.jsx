@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/Button'
 import JobDetailSkeleton from '../components/skeletons/JobDetailSkeleton'
 import StatusBadge from '../components/StatusBadge'
@@ -27,6 +27,22 @@ export default function JobDetailPage() {
 
   const [applyState, setApplyState] = useState('idle')
   const [applyError, setApplyError] = useState('')
+
+  // Real browser-history back (matching how the browser's own Back button
+  // behaves) rather than a fresh push to /jobs, so this restores the exact
+  // carousel/grid page the candidate was on instead of always resetting to
+  // page 1 — the position-restoration system on JobsPage specifically keys
+  // that behavior off POP vs PUSH. location.key is 'default' only for the
+  // very first entry in this tab's session (react-router's own documented
+  // signal for "nothing to go back to" — e.g. a job link opened directly),
+  // where navigate(-1) could otherwise leave the app entirely.
+  function goBackToJobs() {
+    if (location.key === 'default') {
+      navigate('/jobs')
+    } else {
+      navigate(-1)
+    }
+  }
 
   const {
     data: job,
@@ -69,9 +85,9 @@ export default function JobDetailPage() {
   return (
     <div className="min-h-screen bg-canvas">
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <Link to="/jobs" className="text-sm font-medium text-jade hover:text-jade-deep">
+        <button type="button" onClick={goBackToJobs} className="text-sm font-medium text-jade hover:text-jade-deep">
           ← Back to all jobs
-        </Link>
+        </button>
 
         {isLoading && (
           <div className="mt-6">
@@ -148,18 +164,26 @@ export default function JobDetailPage() {
               ) : applyState === 'success' ? (
                 <div className="rounded-md bg-jade-tint px-4 py-3">
                   <p className="text-sm font-medium text-jade-deep">Application submitted! We'll be in touch.</p>
-                  <Link to="/jobs" className="mt-2 inline-block text-sm font-medium text-jade-deep underline hover:text-jade">
+                  <button
+                    type="button"
+                    onClick={goBackToJobs}
+                    className="mt-2 inline-block text-sm font-medium text-jade-deep underline hover:text-jade"
+                  >
                     Browse more jobs
-                  </Link>
+                  </button>
                 </div>
               ) : applyState === 'already-applied' ? (
                 <div className="rounded-md bg-ink/5 px-4 py-3">
                   <p className="text-sm font-medium text-ink/70">
                     You've already applied to this job. Please wait for the admin's response.
                   </p>
-                  <Link to="/jobs" className="mt-2 inline-block text-sm font-medium text-ink underline hover:text-ink/70">
+                  <button
+                    type="button"
+                    onClick={goBackToJobs}
+                    className="mt-2 inline-block text-sm font-medium text-ink underline hover:text-ink/70"
+                  >
                     Browse more jobs
-                  </Link>
+                  </button>
                 </div>
               ) : (
                 <div>
