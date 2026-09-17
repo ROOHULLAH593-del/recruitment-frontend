@@ -1,10 +1,25 @@
 import { X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 
-export default function Modal({ title, onClose, children }) {
+// 'md' fits a simple form or confirmation (ConfirmDialog, Schedule
+// Interview); 'lg' matches SettingsPanel's own footprint for content that
+// needs real room to breathe (skills, resume text, etc.).
+const SIZE_CLASSES = {
+  md: 'max-h-[85vh] max-w-md',
+  lg: 'max-h-[min(640px,calc(100vh-4rem))] max-w-4xl',
+}
+
+export default function Modal({ title, onClose, children, size = 'md' }) {
   const overlayRef = useRef(null)
   const panelRef = useRef(null)
+
+  // Modal is only ever rendered while conceptually "open" (callers mount it
+  // conditionally), so this spans exactly its mounted lifetime — including
+  // the exit animation below, since onClose (and the parent's unmount) only
+  // fires once that finishes.
+  useBodyScrollLock(true)
 
   useEffect(() => {
     gsap.set(overlayRef.current, { opacity: 0 })
@@ -25,7 +40,7 @@ export default function Modal({ title, onClose, children }) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-ink/10 bg-surface-elevated p-6"
+        className={`w-full overflow-y-auto rounded-lg border border-ink/10 bg-surface-elevated p-6 ${SIZE_CLASSES[size]}`}
       >
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl text-ink">{title}</h2>

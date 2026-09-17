@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { LogOut, Palette, User, UserPlus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import AccountPasswordForm from './AccountPasswordForm'
 import ColorCustomizer from './ColorCustomizer'
 import HrInvitationsPanel from './HrInvitationsPanel'
@@ -31,17 +32,17 @@ export default function SettingsPanel({ isOpen, initialTab = 'profile', onClose 
     setWasOpen(false)
   }
 
+  useBodyScrollLock(isOpen)
+
   useEffect(() => {
     if (!isOpen) return
 
-    document.body.style.overflow = 'hidden'
     function handleEscape(event) {
       if (event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handleEscape)
 
     return () => {
-      document.body.style.overflow = ''
       window.removeEventListener('keydown', handleEscape)
     }
   }, [isOpen, onClose])

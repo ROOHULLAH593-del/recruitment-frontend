@@ -15,6 +15,7 @@ import {
 import { useEffect, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import AvatarMenu from './AvatarMenu'
 import Button from './Button'
 import SettingsPanel from './SettingsPanel'
@@ -96,21 +97,13 @@ export default function Header() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Depends on settingsTab too, not just isMenuOpen: openSettings() flips both
-  // in the same event handler (closing the mobile nav while opening Settings,
-  // e.g. tapping "Settings" inside the hamburger menu), and SettingsPanel
-  // manages this same body style independently for its own isOpen. Without
-  // reading the combined state here, this effect's unconditional `''` on
-  // isMenuOpen's cleanup fires after SettingsPanel's own effect has already
-  // set 'hidden' (child effects run before the parent's in the same commit),
-  // silently un-locking background scroll for a modal that's still open.
-  useEffect(() => {
-    const shouldLockScroll = isMenuOpen || settingsTab !== null
-    document.body.style.overflow = shouldLockScroll ? 'hidden' : ''
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [isMenuOpen, settingsTab])
+  // SettingsPanel locks scroll for its own isOpen independently — this used
+  // to matter here too (openSettings() flips isMenuOpen and settingsTab in
+  // the same handler, e.g. tapping "Settings" inside the hamburger menu, and
+  // a naive per-component overflow toggle would have one's cleanup clobber
+  // the other's lock). useBodyScrollLock's shared reference count makes that
+  // coordination unnecessary: each caller just reports its own need.
+  useBodyScrollLock(isMenuOpen)
 
   useEffect(() => {
     function handleEscape(event) {

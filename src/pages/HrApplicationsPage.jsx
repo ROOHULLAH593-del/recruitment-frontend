@@ -418,7 +418,7 @@ export default function HrApplicationsPage() {
       )}
 
       {viewingProfile && (
-        <Modal title={`${viewingProfile.candidate?.name}'s profile`} onClose={() => setViewingProfile(null)}>
+        <Modal title={`${viewingProfile.candidate?.name}'s profile`} onClose={() => setViewingProfile(null)} size="lg">
           <div className="space-y-5">
             <div>
               <p className="text-sm text-ink/55">{viewingProfile.candidate?.email}</p>
