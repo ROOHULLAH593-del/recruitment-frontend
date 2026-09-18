@@ -29,7 +29,7 @@ export default function LoginForm({ title, subtitle, submitLabel = 'Log in', sho
   const { login, isAuthenticated, isLoading, user } = useAuth()
   const location = useLocation()
 
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState({ identifier: '', password: '' })
   const [errors, setErrors] = useState({})
   const [generalError, setGeneralError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -56,7 +56,7 @@ export default function LoginForm({ title, subtitle, submitLabel = 'Log in', sho
     setIsSubmitting(true)
 
     try {
-      const loggedInUser = await login(form.email, form.password)
+      const loggedInUser = await login(form.identifier, form.password)
 
       const candidateOnStaffPortal = portal === 'staff' && loggedInUser.role === 'candidate'
       const staffOnCandidatePortal = portal === 'candidate' && loggedInUser.role !== 'candidate'
@@ -100,13 +100,12 @@ export default function LoginForm({ title, subtitle, submitLabel = 'Log in', sho
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <FormField
-            label="Email"
-            type="email"
-            name="email"
-            value={form.email}
+            label="Email, Username, or CNIC"
+            name="identifier"
+            value={form.identifier}
             onChange={handleChange}
-            error={errors.email?.[0]}
-            autoComplete="email"
+            error={errors.identifier?.[0]}
+            autoComplete="username"
           />
           <FormField
             label="Password"

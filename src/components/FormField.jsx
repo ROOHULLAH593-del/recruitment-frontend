@@ -10,6 +10,7 @@ export default function FormField({
   error,
   autoComplete,
   required = true,
+  ...rest
 }) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const isPassword = type === 'password'
@@ -31,6 +32,7 @@ export default function FormField({
           className={`mt-1 block w-full rounded-md border border-ink/15 bg-card-fill px-3 py-2 text-ink placeholder:text-ink/35 focus:border-jade focus:outline-none focus:ring-1 focus:ring-jade focus:shadow-[var(--shadow-glow)] ${
             isPassword ? 'pr-10' : ''
           }`}
+          {...rest}
         />
         {isPassword && (
           <button

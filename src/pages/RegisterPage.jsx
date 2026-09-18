@@ -3,14 +3,28 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import FormField from '../components/FormField'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../hooks/useToast'
+
+// Reformats a CNIC's raw digits into the standard XXXXX-XXXXXXX-X grouping
+// as the candidate types, so they never have to type the dashes themselves.
+function formatCnic(digits) {
+  const truncated = digits.slice(0, 13)
+  let formatted = truncated.slice(0, 5)
+  if (truncated.length > 5) formatted += `-${truncated.slice(5, 12)}`
+  if (truncated.length > 12) formatted += `-${truncated.slice(12, 13)}`
+  return formatted
+}
 
 export default function RegisterPage() {
   const { register, isAuthenticated, isLoading } = useAuth()
+  const { showToast } = useToast()
   const navigate = useNavigate()
 
   const [form, setForm] = useState({
     name: '',
     email: '',
+    username: '',
+    cnic: '',
     password: '',
     password_confirmation: '',
   })
@@ -27,6 +41,21 @@ export default function RegisterPage() {
     setForm((previous) => ({ ...previous, [name]: value }))
   }
 
+  function handleCnicChange(event) {
+    const previousFormatted = form.cnic
+    const nextRaw = event.target.value
+    let digits = nextRaw.replace(/\D/g, '')
+
+    // Backspacing right after an auto-inserted dash only removes the dash
+    // itself (it isn't a digit) — without this, the re-formatted value
+    // comes out identical to before and backspace appears to do nothing.
+    if (nextRaw.length === previousFormatted.length - 1 && previousFormatted[nextRaw.length] === '-') {
+      digits = digits.slice(0, -1)
+    }
+
+    setForm((previous) => ({ ...previous, cnic: formatCnic(digits) }))
+  }
+
   async function handleSubmit(event) {
     event.preventDefault()
     setErrors({})
@@ -35,7 +64,8 @@ export default function RegisterPage() {
 
     try {
       await register(form)
-      navigate('/dashboard', { replace: true })
+      showToast('Account created — please log in.', 'positive')
+      navigate('/login', { replace: true })
     } catch (error) {
       if (error.response?.status === 422) {
         setErrors(error.response.data.errors ?? {})
@@ -71,6 +101,24 @@ export default function RegisterPage() {
             onChange={handleChange}
             error={errors.email?.[0]}
             autoComplete="email"
+          />
+          <FormField
+            label="Username"
+            name="username"
+            value={form.username}
+            onChange={handleChange}
+            error={errors.username?.[0]}
+            autoComplete="username"
+          />
+          <FormField
+            label="CNIC"
+            name="cnic"
+            value={form.cnic}
+            onChange={handleCnicChange}
+            error={errors.cnic?.[0]}
+            autoComplete="off"
+            inputMode="numeric"
+            placeholder="12345-1234567-1"
           />
           <FormField
             label="Password"

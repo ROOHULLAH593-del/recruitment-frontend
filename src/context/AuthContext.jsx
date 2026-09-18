@@ -52,8 +52,8 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized)
   }, [])
 
-  const login = useCallback(async (email, password) => {
-    const { data } = await api.post('/login', { email, password })
+  const login = useCallback(async (identifier, password) => {
+    const { data } = await api.post('/login', { identifier, password })
 
     // None of this app's query keys are scoped by user id (['profile'],
     // ['applications', 'mine', page], etc.), so without this, signing in as
@@ -66,19 +66,20 @@ export function AuthProvider({ children }) {
     return data.user
   }, [])
 
-  const register = useCallback(async ({ name, email, password, password_confirmation }) => {
-    const { data } = await api.post('/register', {
+  // No token/auto-login here — the backend deliberately doesn't issue one
+  // on registration (a candidate's first CNIC/password shouldn't be
+  // auto-trusted the moment it's typed in), so this just performs the
+  // signup and leaves auth state untouched. RegisterPage sends the
+  // candidate to /login afterward.
+  const register = useCallback(async ({ name, email, username, cnic, password, password_confirmation }) => {
+    await api.post('/register', {
       name,
       email,
+      username,
+      cnic,
       password,
       password_confirmation,
     })
-
-    queryClient.clear()
-    localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
-    setUser(data.user)
-
-    return data.user
   }, [])
 
   const logout = useCallback(async () => {
