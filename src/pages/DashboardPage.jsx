@@ -95,6 +95,13 @@ export default function DashboardPage() {
                         <AiSemanticMatchChip score={application.semantic_match_score} />
                       </div>
                     </div>
+
+                    {application.status === 'rejected' && application.rejection_reason && (
+                      <div className="mt-4 rounded-md bg-rust-tint px-4 py-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-rust-deep">Feedback</p>
+                        <p className="mt-1 text-sm text-rust-deep">{application.rejection_reason}</p>
+                      </div>
+                    )}
                   </motion.div>
                 )
               })}

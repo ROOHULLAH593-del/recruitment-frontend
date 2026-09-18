@@ -63,6 +63,11 @@ export default function HrApplicationsPage() {
 
   const [viewingProfile, setViewingProfile] = useState(null)
 
+  const [rejectingApplication, setRejectingApplication] = useState(null)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [rejectionError, setRejectionError] = useState('')
+  const [isRejecting, setIsRejecting] = useState(false)
+
   const queryKey = ['applications', 'hr', page]
 
   const {
@@ -110,6 +115,45 @@ export default function HrApplicationsPage() {
       setActionError(err.response?.data?.message ?? 'Unable to update status. Please try again.')
     } finally {
       setUpdatingId(null)
+    }
+  }
+
+  // Rejecting is the one transition that doesn't fire immediately from the
+  // status Select — it opens a small modal for an optional note first,
+  // matching the confirmed design (rejection is the only status change worth
+  // pausing for, since it's the one a candidate actually reads an
+  // explanation about).
+  function handleStatusSelectChange(application, newStatus) {
+    if (newStatus === 'rejected') {
+      setRejectingApplication(application)
+      setRejectionReason('')
+      setRejectionError('')
+    } else {
+      handleStatusChange(application, newStatus)
+    }
+  }
+
+  async function handleRejectSubmit(event, closeModal) {
+    event.preventDefault()
+    setRejectionError('')
+    setIsRejecting(true)
+
+    try {
+      const { data } = await api.patch(`/applications/${rejectingApplication.id}/status`, {
+        status: 'rejected',
+        rejection_reason: rejectionReason.trim() || null,
+      })
+      queryClient.setQueryData(queryKey, (old) =>
+        old
+          ? { ...old, data: old.data.map((existing) => (existing.id === rejectingApplication.id ? data.data : existing)) }
+          : old,
+      )
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      closeModal()
+    } catch (error) {
+      setRejectionError(error.response?.data?.message ?? 'Unable to reject this application. Please try again.')
+    } finally {
+      setIsRejecting(false)
     }
   }
 
@@ -253,7 +297,7 @@ export default function HrApplicationsPage() {
                       <Select
                         value={application.status}
                         disabled={updatingId === application.id || application.allowed_status_transitions.length === 0}
-                        onChange={(event) => handleStatusChange(application, event.target.value)}
+                        onChange={(event) => handleStatusSelectChange(application, event.target.value)}
                         className={SELECT_CLASSES}
                         options={[
                           { value: application.status, label: APPLICATION_STATUS_LABELS[application.status] },
@@ -333,7 +377,7 @@ export default function HrApplicationsPage() {
                       <Select
                         value={application.status}
                         disabled={updatingId === application.id || application.allowed_status_transitions.length === 0}
-                        onChange={(event) => handleStatusChange(application, event.target.value)}
+                        onChange={(event) => handleStatusSelectChange(application, event.target.value)}
                         className={`mt-1 w-full ${SELECT_CLASSES}`}
                         options={[
                           { value: application.status, label: APPLICATION_STATUS_LABELS[application.status] },
@@ -478,6 +522,45 @@ export default function HrApplicationsPage() {
               </p>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {rejectingApplication && (
+        <Modal
+          title={`Reject application — ${rejectingApplication.candidate?.name}`}
+          onClose={() => setRejectingApplication(null)}
+        >
+          {(closeModal) => (
+            <form onSubmit={(event) => handleRejectSubmit(event, closeModal)} className="space-y-4">
+              <div>
+                <label htmlFor="rejection_reason" className="block text-sm font-medium text-ink">
+                  Add a note explaining why (optional)
+                </label>
+                <textarea
+                  id="rejection_reason"
+                  rows={4}
+                  value={rejectionReason}
+                  onChange={(event) => setRejectionReason(event.target.value)}
+                  placeholder="e.g. Looking for more experience in a specific skill area…"
+                  className="mt-1 block w-full rounded-md border border-ink/15 bg-card-fill px-3 py-2 text-ink focus:border-jade focus:outline-none focus:ring-1 focus:ring-jade"
+                />
+                <p className="mt-1 text-xs text-ink/55">
+                  Shared with the candidate on their dashboard and in the rejection email.
+                </p>
+              </div>
+
+              {rejectionError && <p className="text-sm text-rust">{rejectionError}</p>}
+
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="ghost" onClick={closeModal}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="destructive" loading={isRejecting}>
+                  {isRejecting ? 'Rejecting…' : 'Reject Application'}
+                </Button>
+              </div>
+            </form>
+          )}
         </Modal>
       )}
     </div>
