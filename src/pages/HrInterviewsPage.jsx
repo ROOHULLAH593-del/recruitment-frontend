@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
+import { Search } from 'lucide-react'
 import { useRef, useState } from 'react'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
@@ -48,6 +49,7 @@ export default function HrInterviewsPage() {
   const [page, setPage] = useState(1)
   const [actionError, setActionError] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [search, setSearch] = useState('')
   const [updatingId, setUpdatingId] = useState(null)
   const [updatingAction, setUpdatingAction] = useState(null)
 
@@ -72,7 +74,16 @@ export default function HrInterviewsPage() {
   const interviews = data?.data ?? []
   const meta = data?.meta ?? null
 
-  const filteredInterviews = interviews.filter((interview) => !statusFilter || interview.status === statusFilter)
+  const filteredInterviews = interviews.filter((interview) => {
+    if (statusFilter && interview.status !== statusFilter) return false
+    if (search) {
+      const term = search.trim().toLowerCase()
+      const name = interview.application?.candidate?.name?.toLowerCase() ?? ''
+      const email = interview.application?.candidate?.email?.toLowerCase() ?? ''
+      if (!name.includes(term) && !email.includes(term)) return false
+    }
+    return true
+  })
 
   async function updateStatus(interview, status) {
     setUpdatingId(interview.id)
@@ -156,6 +167,23 @@ export default function HrInterviewsPage() {
               ]}
             />
           </div>
+
+          <div>
+            <label htmlFor="search" className="block text-xs font-medium text-ink/55">
+              Search
+            </label>
+            <div className="relative mt-1">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35" />
+              <input
+                id="search"
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Name or email…"
+                className="w-56 rounded-md border border-ink/15 bg-card-fill py-1.5 pl-8 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-jade focus:outline-none focus:ring-1 focus:ring-jade"
+              />
+            </div>
+          </div>
         </div>
 
         {(isError || actionError) && (
@@ -163,7 +191,7 @@ export default function HrInterviewsPage() {
         )}
 
         {!isLoading && filteredInterviews.length === 0 && (
-          <p className="mt-8 text-ink/55">No interviews match this filter.</p>
+          <p className="mt-8 text-ink/55">No interviews match these filters.</p>
         )}
 
         {(isLoading || filteredInterviews.length > 0) && (

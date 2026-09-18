@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { CalendarClock, Sparkles, UserRound } from 'lucide-react'
+import { CalendarClock, Search, Sparkles, UserRound } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
@@ -54,6 +54,7 @@ export default function HrApplicationsPage() {
   const [actionError, setActionError] = useState('')
   const [jobFilter, setJobFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [search, setSearch] = useState('')
   const [updatingId, setUpdatingId] = useState(null)
 
   const [schedulingApplication, setSchedulingApplication] = useState(null)
@@ -95,6 +96,12 @@ export default function HrApplicationsPage() {
   const filteredApplications = applications.filter((application) => {
     if (jobFilter && String(application.job?.id) !== jobFilter) return false
     if (statusFilter && application.status !== statusFilter) return false
+    if (search) {
+      const term = search.trim().toLowerCase()
+      const name = application.candidate?.name?.toLowerCase() ?? ''
+      const email = application.candidate?.email?.toLowerCase() ?? ''
+      if (!name.includes(term) && !email.includes(term)) return false
+    }
     return true
   })
 
@@ -229,6 +236,23 @@ export default function HrApplicationsPage() {
                 ...APPLICATION_STATUS_ORDER.map((status) => ({ value: status, label: APPLICATION_STATUS_LABELS[status] })),
               ]}
             />
+          </div>
+
+          <div>
+            <label htmlFor="search" className="block text-xs font-medium text-ink/55">
+              Search
+            </label>
+            <div className="relative mt-1">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35" />
+              <input
+                id="search"
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Name or email…"
+                className="w-56 rounded-md border border-ink/15 bg-card-fill py-1.5 pl-8 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-jade focus:outline-none focus:ring-1 focus:ring-jade"
+              />
+            </div>
           </div>
         </div>
 

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Search } from 'lucide-react'
 import { useState } from 'react'
 import { useThemeColors } from '../hooks/useThemeColors'
 import { useToast } from '../hooks/useToast'
@@ -90,6 +90,7 @@ export default function HrInvitationsPanel() {
 
   const [actingId, setActingId] = useState(null)
   const [confirmingReject, setConfirmingReject] = useState(null)
+  const [search, setSearch] = useState('')
 
   const {
     data,
@@ -102,6 +103,14 @@ export default function HrInvitationsPanel() {
   })
 
   const invitations = data?.data ?? []
+
+  const filteredInvitations = invitations.filter((invitation) => {
+    if (!search) return true
+    const term = search.trim().toLowerCase()
+    const name = invitation.applicant_name?.toLowerCase() ?? ''
+    const email = invitation.applicant_email?.toLowerCase() ?? ''
+    return name.includes(term) || email.includes(term)
+  })
 
   function refreshInvitations() {
     queryClient.invalidateQueries({ queryKey: ['invitations'] })
@@ -217,11 +226,33 @@ export default function HrInvitationsPanel() {
       </div>
 
       <div>
-        <p className="text-xs font-medium text-ink/50">All invitations</p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <p className="text-xs font-medium text-ink/50">All invitations</p>
+
+          <div>
+            <label htmlFor="invitation-search" className="block text-xs font-medium text-ink/55">
+              Search
+            </label>
+            <div className="relative mt-1">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35" />
+              <input
+                id="invitation-search"
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Name or email…"
+                className="w-56 rounded-md border border-ink/15 bg-card-fill py-1.5 pl-8 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-jade focus:outline-none focus:ring-1 focus:ring-jade"
+              />
+            </div>
+          </div>
+        </div>
 
         {isError && <p className="mt-3 text-sm text-rust">Unable to load invitations. Please try again later.</p>}
         {!isLoading && !isError && invitations.length === 0 && (
           <p className="mt-3 text-sm text-ink/55">No invitations yet.</p>
+        )}
+        {!isLoading && !isError && invitations.length > 0 && filteredInvitations.length === 0 && (
+          <p className="mt-3 text-sm text-ink/55">No invitations match your search.</p>
         )}
 
         <div className="mt-3 space-y-2">
@@ -229,7 +260,7 @@ export default function HrInvitationsPanel() {
             Array.from({ length: 3 }).map((_, index) => <TableCardSkeleton key={index} />)}
 
           {!isLoading &&
-            invitations.map((invitation) => (
+            filteredInvitations.map((invitation) => (
               <div key={invitation.id} className="rounded-md border border-ink/10 bg-card-fill p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
