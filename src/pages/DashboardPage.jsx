@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
+import { CalendarClock, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Pagination from '../components/Pagination'
@@ -74,6 +74,12 @@ export default function DashboardPage() {
                         <p className="mt-1 text-sm text-ink/55">
                           Applied {new Date(application.applied_at).toLocaleDateString()}
                         </p>
+                        {application.interview && (
+                          <p className="mt-1 flex items-center gap-1.5 text-sm text-ink/55">
+                            <CalendarClock size={14} />
+                            Interview: {new Date(application.interview.scheduled_at).toLocaleString()}
+                          </p>
+                        )}
                       </div>
                       <StatusBadge status={application.status} theme={applicationStatusTheme} />
                     </div>
