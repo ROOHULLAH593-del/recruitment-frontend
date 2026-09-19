@@ -79,64 +79,72 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
-      <div className="w-full max-w-sm rounded-lg border border-ink/10 bg-card-fill p-8">
+      <div className="w-full max-w-sm rounded-lg border border-ink/10 bg-card-fill p-8 md:max-w-2xl">
         <h1 className="font-display text-2xl text-ink">
           Create your account. <span className="text-ink/50">Candidate registration only.</span>
         </h1>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <FormField
-            label="Full name"
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            error={errors.name?.[0]}
-            autoComplete="name"
-          />
-          <FormField
-            label="Email"
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-            error={errors.email?.[0]}
-            autoComplete="email"
-          />
-          <FormField
-            label="Username"
-            name="username"
-            value={form.username}
-            onChange={handleChange}
-            error={errors.username?.[0]}
-            autoComplete="username"
-          />
-          <FormField
-            label="CNIC"
-            name="cnic"
-            value={form.cnic}
-            onChange={handleCnicChange}
-            error={errors.cnic?.[0]}
-            autoComplete="off"
-            inputMode="numeric"
-            placeholder="12345-1234567-1"
-          />
-          <FormField
-            label="Password"
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            error={errors.password?.[0]}
-            autoComplete="new-password"
-          />
-          <FormField
-            label="Confirm password"
-            type="password"
-            name="password_confirmation"
-            value={form.password_confirmation}
-            onChange={handleChange}
-            autoComplete="new-password"
-          />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField
+              label="Full name"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              error={errors.name?.[0]}
+              autoComplete="name"
+            />
+            <FormField
+              label="Username"
+              name="username"
+              value={form.username}
+              onChange={handleChange}
+              error={errors.username?.[0]}
+              autoComplete="username"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField
+              label="Email"
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+              error={errors.email?.[0]}
+              autoComplete="email"
+            />
+            <FormField
+              label="CNIC"
+              name="cnic"
+              value={form.cnic}
+              onChange={handleCnicChange}
+              error={errors.cnic?.[0]}
+              autoComplete="off"
+              inputMode="numeric"
+              placeholder="12345-1234567-1"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField
+              label="Password"
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              error={errors.password?.[0]}
+              autoComplete="new-password"
+            />
+            <FormField
+              label="Confirm password"
+              type="password"
+              name="password_confirmation"
+              value={form.password_confirmation}
+              onChange={handleChange}
+              autoComplete="new-password"
+            />
+          </div>
 
           {generalError && <p className="text-sm text-rust">{generalError}</p>}
 
