@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { CalendarClock, Search, Sparkles, UserRound } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import Button from '../components/Button'
+import CandidateDocumentsList from '../components/CandidateDocumentsList'
 import Modal from '../components/Modal'
 import Pagination from '../components/Pagination'
 import ScoreChip, { AiSemanticMatchChip } from '../components/ScoreChip'
@@ -10,6 +11,7 @@ import Select from '../components/Select'
 import TableCardSkeleton from '../components/skeletons/TableCardSkeleton'
 import TableRowSkeleton from '../components/skeletons/TableRowSkeleton'
 import StatusBadge from '../components/StatusBadge'
+import { useAuth } from '../hooks/useAuth'
 import { useScrollShadow } from '../hooks/useScrollShadow'
 import { useThemeColors } from '../hooks/useThemeColors'
 import { APPLICATION_STATUS_LABELS, APPLICATION_STATUS_ORDER } from '../lib/applicationStatus'
@@ -41,6 +43,7 @@ const SHADOW_RIGHT = 'shadow-[6px_0_8px_-6px_rgba(0,0,0,0.12)]'
 const SHADOW_LEFT = 'shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]'
 
 export default function HrApplicationsPage() {
+  const { user } = useAuth()
   const { applicationStatusTheme, interviewStatusTheme, badgeStyle } = useThemeColors()
   // A hardcoded near-black tint reads correctly on every light-canvas theme
   // but is the wrong direction on "dark" (darkening an already near-black
@@ -545,6 +548,14 @@ export default function HrApplicationsPage() {
                 {viewingProfile.candidate?.candidate_profile?.resume_text || 'No resume text provided.'}
               </p>
             </div>
+
+            {viewingProfile.candidate?.candidate_profile?.id && (
+              <CandidateDocumentsList
+                profileId={viewingProfile.candidate.candidate_profile.id}
+                documents={viewingProfile.candidate.candidate_profile.documents}
+                isAdmin={user?.role === 'admin'}
+              />
+            )}
           </div>
         </Modal>
       )}

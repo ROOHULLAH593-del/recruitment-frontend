@@ -11,6 +11,16 @@ import FormSkeleton from './skeletons/FormSkeleton'
 
 const RESUME_MAX_BYTES = 5 * 1024 * 1024
 
+// Order matches the apply-time gate on the backend (transcript, CNIC front,
+// CNIC back are required; certificates are supporting documents).
+const DOCUMENT_TYPES = [
+  { key: 'transcript', label: 'Transcript', required: true },
+  { key: 'cnic_front', label: 'CNIC (front)', required: true },
+  { key: 'cnic_back', label: 'CNIC (back)', required: true },
+  { key: 'fsc_certificate', label: 'FSC Certificate', required: false },
+  { key: 'matric_certificate', label: 'Matric Certificate', required: false },
+]
+
 const EDUCATION_OPTIONS = [
   { value: '', label: 'Select…' },
   { value: 'highschool', label: 'High School' },
@@ -70,6 +80,10 @@ function ProfileFormFields({ profile }) {
   const [isUploadingResume, setIsUploadingResume] = useState(false)
   const [uploadError, setUploadError] = useState('')
 
+  const [uploadingDocumentType, setUploadingDocumentType] = useState(null)
+  const [documentErrors, setDocumentErrors] = useState({})
+  const documents = profile.documents ?? {}
+
   function handleChange(event) {
     const { name, value } = event.target
     setForm((previous) => ({ ...previous, [name]: value }))
@@ -117,6 +131,54 @@ function ProfileFormFields({ profile }) {
       setUploadError(error.response?.data?.message ?? "Couldn't auto-fill — please enter your details manually.")
     } finally {
       setIsUploadingResume(false)
+    }
+  }
+
+  // A single shared hidden <input> plus a "which slot is this for" piece of
+  // state would race: the input's change event only fires once the file
+  // picker resolves, and if that happens faster than React's re-render
+  // (as it reliably does under fast/automated interaction, and potentially
+  // a fast real double-click too), the handler could still read the
+  // *previous* slot's type from a stale closure — silently uploading a
+  // file into the wrong document slot. Creating one input per click and
+  // capturing documentType directly in its own closure makes that
+  // impossible regardless of timing.
+  function openDocumentPicker(documentType) {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'application/pdf,image/jpeg,image/png'
+    input.addEventListener('change', () => {
+      const file = input.files?.[0]
+      if (file) handleDocumentUpload(documentType, file)
+    })
+    input.click()
+  }
+
+  async function handleDocumentUpload(documentType, file) {
+    setDocumentErrors((previous) => ({ ...previous, [documentType]: '' }))
+    setUploadingDocumentType(documentType)
+
+    const body = new FormData()
+    body.append('document_type', documentType)
+    body.append('file', file)
+
+    try {
+      const { data } = await api.post('/profile/documents', body)
+      // Keep the cache in sync so the new "Uploaded" status/Replace label
+      // shows immediately, and so the apply-time gate on JobDetailPage sees
+      // it on its next check without waiting out staleTime.
+      queryClient.setQueryData(['profile'], { data: data.data })
+      showToast('Document uploaded.', 'positive')
+    } catch (error) {
+      setDocumentErrors((previous) => ({
+        ...previous,
+        [documentType]:
+          error.response?.data?.errors?.file?.[0] ??
+          error.response?.data?.message ??
+          'Unable to upload this document. Please try again.',
+      }))
+    } finally {
+      setUploadingDocumentType(null)
     }
   }
 
@@ -184,6 +246,50 @@ function ProfileFormFields({ profile }) {
           />
         </div>
         {uploadError && <p className="mt-3 text-sm text-rust">{uploadError}</p>}
+      </div>
+
+      <div className="rounded-lg border border-ink/10 bg-canvas/60 p-5">
+        <p className="text-sm font-medium text-ink">Application documents</p>
+        <p className="mt-0.5 text-xs text-ink/55">
+          Transcript and both sides of your CNIC are required before you can apply to a job. PDF, JPG, or PNG, up to
+          10MB.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          {DOCUMENT_TYPES.map((type) => {
+            const isUploaded = Boolean(documents[type.key])
+            const isUploading = uploadingDocumentType === type.key
+
+            return (
+              <div key={type.key}>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-ink/10 bg-card-fill px-4 py-3">
+                  <div>
+                    <p className="flex items-center gap-2 text-sm font-medium text-ink">
+                      {type.label}
+                      <span className={`text-xs font-normal ${type.required ? 'text-rust' : 'text-ink/40'}`}>
+                        {type.required ? 'Required' : 'Optional'}
+                      </span>
+                    </p>
+                    {/* The backend only stores a randomly-named path, not the
+                        original filename, so status is uploaded/not-uploaded
+                        only — there's no real filename available to show. */}
+                    <p className="mt-0.5 text-xs text-ink/55">{isUploaded ? 'Uploaded' : 'Not uploaded yet'}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    icon={Upload}
+                    loading={isUploading}
+                    onClick={() => openDocumentPicker(type.key)}
+                  >
+                    {isUploading ? 'Uploading…' : isUploaded ? 'Replace' : 'Upload'}
+                  </Button>
+                </div>
+                {documentErrors[type.key] && <p className="mt-1.5 text-sm text-rust">{documentErrors[type.key]}</p>}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">

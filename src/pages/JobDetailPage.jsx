@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/Button'
 import JobDetailSkeleton from '../components/skeletons/JobDetailSkeleton'
 import StatusBadge from '../components/StatusBadge'
@@ -75,6 +75,12 @@ export default function JobDetailPage() {
     } catch (error) {
       if (error.response?.status === 409) {
         setApplyState('already-applied')
+      } else if (error.response?.status === 422 && error.response?.data?.errors?.documents) {
+        // The backend's message already names exactly which required
+        // documents are missing — shown as-is rather than replaced with a
+        // generic failure, with a direct link to go complete them.
+        setApplyState('missing-documents')
+        setApplyError(error.response.data.errors.documents[0])
       } else {
         setApplyState('error')
         setApplyError(error.response?.data?.message ?? 'Something went wrong. Please try again.')
@@ -184,6 +190,16 @@ export default function JobDetailPage() {
                   >
                     Browse more jobs
                   </button>
+                </div>
+              ) : applyState === 'missing-documents' ? (
+                <div className="rounded-md bg-rust-tint px-4 py-3">
+                  <p className="text-sm font-medium text-rust-deep">{applyError}</p>
+                  <Link
+                    to="/profile"
+                    className="mt-2 inline-block text-sm font-medium text-rust-deep underline hover:text-rust"
+                  >
+                    Complete your profile
+                  </Link>
                 </div>
               ) : (
                 <div>
