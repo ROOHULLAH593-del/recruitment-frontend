@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import ScrollToTopButton from './components/ScrollToTopButton'
 import { useScrollRestoration } from './hooks/useScrollRestoration'
 import DashboardPage from './pages/DashboardPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import HrApplicationsPage from './pages/HrApplicationsPage'
 import HrDashboardPage from './pages/HrDashboardPage'
 import HrInterviewsPage from './pages/HrInterviewsPage'
@@ -18,6 +19,7 @@ import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
 import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import StaffLoginPage from './pages/StaffLoginPage'
 
 // Job posting writes (create/edit) stay hr/admin-only — assistant_hr has
@@ -27,7 +29,7 @@ import StaffLoginPage from './pages/StaffLoginPage'
 // assistant_hr has full access there, same as hr.
 const HR_ROLES = ['hr', 'admin']
 const STAFF_ROLES = ['hr', 'assistant_hr', 'admin']
-const NO_HEADER_PATHS = ['/login', '/register', '/staff']
+const NO_HEADER_PATHS = ['/login', '/register', '/staff', '/forgot-password', '/reset-password']
 
 function App() {
   const location = useLocation()
@@ -52,6 +54,8 @@ function App() {
             <Route path="/jobs/:id" element={<JobDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/staff" element={<StaffLoginPage />} />
             <Route path="/staff/join/:token" element={<JoinPage />} />
             <Route

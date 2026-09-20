@@ -18,6 +18,11 @@ const MISMATCH_MESSAGES = {
   candidate: "You're signed in with a staff account — taking you to your dashboard.",
 }
 
+// Must match AuthController::LOCKOUT_MESSAGE on the backend exactly — this
+// is the one login error message worth reacting to differently, since it's
+// the only one where "try a different password" isn't the right next step.
+const LOCKOUT_MESSAGE = 'Too many failed attempts. Please reset your password.'
+
 // Shared by the candidate-facing /login and the staff-facing /staff pages —
 // same form logic, same backend endpoint, same role-based post-login
 // redirect, just different copy/framing per page (and /staff omits the
@@ -34,6 +39,7 @@ export default function LoginForm({ title, subtitle, submitLabel = 'Log in', sho
   const [generalError, setGeneralError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [mismatchNotice, setMismatchNotice] = useState(null)
+  const [isLocked, setIsLocked] = useState(false)
 
   // Holding the redirect behind `!mismatchNotice` is what gives the banner
   // its brief on-screen window: `isAuthenticated` flips true the instant
@@ -53,6 +59,7 @@ export default function LoginForm({ title, subtitle, submitLabel = 'Log in', sho
     event.preventDefault()
     setErrors({})
     setGeneralError('')
+    setIsLocked(false)
     setIsSubmitting(true)
 
     try {
@@ -66,7 +73,14 @@ export default function LoginForm({ title, subtitle, submitLabel = 'Log in', sho
         setTimeout(() => setMismatchNotice(null), MISMATCH_DISPLAY_MS)
       }
     } catch (error) {
-      if (error.response?.status === 422) {
+      const identifierError = error.response?.data?.errors?.identifier?.[0]
+
+      if (identifierError === LOCKOUT_MESSAGE) {
+        // Shown as its own block below, not the generic inline field
+        // error — "type the password again" isn't a useful next step once
+        // an account is actually locked, so this points at the one that is.
+        setIsLocked(true)
+      } else if (error.response?.status === 422) {
         setErrors(error.response.data.errors ?? {})
       } else {
         setGeneralError(error.response?.data?.message ?? 'Unable to log in. Please try again.')
@@ -107,17 +121,34 @@ export default function LoginForm({ title, subtitle, submitLabel = 'Log in', sho
             error={errors.identifier?.[0]}
             autoComplete="username"
           />
-          <FormField
-            label="Password"
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            error={errors.password?.[0]}
-            autoComplete="current-password"
-          />
+          <div>
+            <FormField
+              label="Password"
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              error={errors.password?.[0]}
+              autoComplete="current-password"
+            />
+            <Link to="/forgot-password" className="mt-1.5 inline-block text-xs font-medium text-jade hover:text-jade-deep">
+              Forgot password?
+            </Link>
+          </div>
 
-          {generalError && <p className="text-sm text-rust">{generalError}</p>}
+          {isLocked ? (
+            <div className="rounded-md bg-rust-tint px-4 py-3">
+              <p className="text-sm font-medium text-rust-deep">{LOCKOUT_MESSAGE}</p>
+              <Link
+                to="/forgot-password"
+                className="mt-2 inline-block text-sm font-medium text-rust-deep underline hover:text-rust"
+              >
+                Reset your password
+              </Link>
+            </div>
+          ) : (
+            generalError && <p className="text-sm text-rust">{generalError}</p>
+          )}
 
           <Button type="submit" variant="primary" loading={isSubmitting} className="w-full">
             {isSubmitting ? 'Logging in…' : submitLabel}

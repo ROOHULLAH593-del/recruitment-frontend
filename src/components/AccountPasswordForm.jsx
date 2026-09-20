@@ -7,9 +7,13 @@ import FormField from './FormField'
 const EMPTY_FORM = { current_password: '', password: '', password_confirmation: '' }
 
 // The Settings Panel's "Profile" tab content for every role — basic
-// read-only account info plus a password-change form. The full candidate
-// profile (skills, education, resume) lives only on the dedicated /profile
-// page, not here.
+// read-only account info, plus a password-change form for staff roles. The
+// full candidate profile (skills, education, resume) lives only on the
+// dedicated /profile page, not here. Candidates don't get a self-service
+// change-password form here at all: now that account lockout + a proper
+// forgot-password flow exist, "forgot password" is the one supported path
+// for a candidate to set a new password, not a second one buried in
+// settings.
 export default function AccountPasswordForm() {
   const { user } = useAuth()
   const [form, setForm] = useState(EMPTY_FORM)
@@ -65,44 +69,46 @@ export default function AccountPasswordForm() {
         </dl>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 border-t border-ink/10 pt-6">
-        <p className="text-xs font-medium text-ink/50">Change password</p>
+      {user.role !== 'candidate' && (
+        <form onSubmit={handleSubmit} className="space-y-4 border-t border-ink/10 pt-6">
+          <p className="text-xs font-medium text-ink/50">Change password</p>
 
-        <FormField
-          label="Current password"
-          type="password"
-          name="current_password"
-          value={form.current_password}
-          onChange={handleChange}
-          error={errors.current_password?.[0]}
-          autoComplete="current-password"
-        />
-        <FormField
-          label="New password"
-          type="password"
-          name="password"
-          value={form.password}
-          onChange={handleChange}
-          error={errors.password?.[0]}
-          autoComplete="new-password"
-        />
-        <FormField
-          label="Confirm new password"
-          type="password"
-          name="password_confirmation"
-          value={form.password_confirmation}
-          onChange={handleChange}
-          required={false}
-          autoComplete="new-password"
-        />
+          <FormField
+            label="Current password"
+            type="password"
+            name="current_password"
+            value={form.current_password}
+            onChange={handleChange}
+            error={errors.current_password?.[0]}
+            autoComplete="current-password"
+          />
+          <FormField
+            label="New password"
+            type="password"
+            name="password"
+            value={form.password}
+            onChange={handleChange}
+            error={errors.password?.[0]}
+            autoComplete="new-password"
+          />
+          <FormField
+            label="Confirm new password"
+            type="password"
+            name="password_confirmation"
+            value={form.password_confirmation}
+            onChange={handleChange}
+            required={false}
+            autoComplete="new-password"
+          />
 
-        {generalError && <p className="text-sm text-rust">{generalError}</p>}
-        {isSaved && <p className="text-sm text-jade-deep">Password updated.</p>}
+          {generalError && <p className="text-sm text-rust">{generalError}</p>}
+          {isSaved && <p className="text-sm text-jade-deep">Password updated.</p>}
 
-        <Button type="submit" variant="primary" loading={isSaving}>
-          {isSaving ? 'Updating…' : 'Update password'}
-        </Button>
-      </form>
+          <Button type="submit" variant="primary" loading={isSaving}>
+            {isSaving ? 'Updating…' : 'Update password'}
+          </Button>
+        </form>
+      )}
     </div>
   )
 }
