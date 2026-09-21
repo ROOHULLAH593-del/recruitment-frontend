@@ -1,7 +1,8 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Search } from 'lucide-react'
+import { Search, Video } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import Pagination from '../components/Pagination'
@@ -234,34 +235,48 @@ export default function HrInterviewsPage() {
                       </td>
                       <td className="max-w-xs truncate px-6 py-4 text-ink/55">{interview.notes ?? '—'}</td>
                       <td className={`px-6 py-4 text-right ${STICKY_RIGHT} ${canScrollLeft ? SHADOW_LEFT : ''}`}>
-                        {isActive ? (
+                        {isActive || interview.video_call ? (
                           <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              className="px-2 py-1"
-                              onClick={() => updateStatus(interview, 'completed')}
-                              disabled={updatingId === interview.id}
-                              loading={updatingId === interview.id && updatingAction === 'completed'}
-                            >
-                              Mark completed
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              className="px-2 py-1"
-                              onClick={() => openReschedule(interview)}
-                              disabled={updatingId === interview.id}
-                            >
-                              Reschedule
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              className="px-2 py-1"
-                              onClick={() => updateStatus(interview, 'cancelled')}
-                              disabled={updatingId === interview.id}
-                              loading={updatingId === interview.id && updatingAction === 'cancelled'}
-                            >
-                              Cancel
-                            </Button>
+                            {/* Driven entirely by video_call's presence, not
+                                a client-side re-check of status — the backend
+                                already omits it for a cancelled interview. */}
+                            {interview.video_call && (
+                              <Link to={`/interviews/${interview.id}/call`}>
+                                <Button variant="ghost" icon={Video} className="px-2 py-1">
+                                  Join Interview
+                                </Button>
+                              </Link>
+                            )}
+                            {isActive && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  className="px-2 py-1"
+                                  onClick={() => updateStatus(interview, 'completed')}
+                                  disabled={updatingId === interview.id}
+                                  loading={updatingId === interview.id && updatingAction === 'completed'}
+                                >
+                                  Mark completed
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  className="px-2 py-1"
+                                  onClick={() => openReschedule(interview)}
+                                  disabled={updatingId === interview.id}
+                                >
+                                  Reschedule
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  className="px-2 py-1"
+                                  onClick={() => updateStatus(interview, 'cancelled')}
+                                  disabled={updatingId === interview.id}
+                                  loading={updatingId === interview.id && updatingAction === 'cancelled'}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            )}
                           </div>
                         ) : (
                           <span className="text-ink/40">—</span>
@@ -308,34 +323,45 @@ export default function HrInterviewsPage() {
                       </div>
                     </dl>
 
-                    {isActive && (
+                    {(isActive || interview.video_call) && (
                       <div className="mt-4 flex flex-wrap gap-2 border-t border-ink/10 pt-3">
-                        <Button
-                          variant="ghost"
-                          className="px-2 py-1"
-                          onClick={() => updateStatus(interview, 'completed')}
-                          disabled={updatingId === interview.id}
-                          loading={updatingId === interview.id && updatingAction === 'completed'}
-                        >
-                          Mark completed
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="px-2 py-1"
-                          onClick={() => openReschedule(interview)}
-                          disabled={updatingId === interview.id}
-                        >
-                          Reschedule
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          className="px-2 py-1"
-                          onClick={() => updateStatus(interview, 'cancelled')}
-                          disabled={updatingId === interview.id}
-                          loading={updatingId === interview.id && updatingAction === 'cancelled'}
-                        >
-                          Cancel
-                        </Button>
+                        {interview.video_call && (
+                          <Link to={`/interviews/${interview.id}/call`}>
+                            <Button variant="ghost" icon={Video} className="px-2 py-1">
+                              Join Interview
+                            </Button>
+                          </Link>
+                        )}
+                        {isActive && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              className="px-2 py-1"
+                              onClick={() => updateStatus(interview, 'completed')}
+                              disabled={updatingId === interview.id}
+                              loading={updatingId === interview.id && updatingAction === 'completed'}
+                            >
+                              Mark completed
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              className="px-2 py-1"
+                              onClick={() => openReschedule(interview)}
+                              disabled={updatingId === interview.id}
+                            >
+                              Reschedule
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              className="px-2 py-1"
+                              onClick={() => updateStatus(interview, 'cancelled')}
+                              disabled={updatingId === interview.id}
+                              loading={updatingId === interview.id && updatingAction === 'cancelled'}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

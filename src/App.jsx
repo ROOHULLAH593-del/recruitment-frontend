@@ -4,6 +4,7 @@ import Header from './components/Header'
 import ProtectedRoute from './components/ProtectedRoute'
 import ScrollToTopButton from './components/ScrollToTopButton'
 import { useScrollRestoration } from './hooks/useScrollRestoration'
+import CallPage from './pages/CallPage'
 import DashboardPage from './pages/DashboardPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import HrApplicationsPage from './pages/HrApplicationsPage'
@@ -33,7 +34,10 @@ const NO_HEADER_PATHS = ['/login', '/register', '/staff', '/forgot-password', '/
 
 function App() {
   const location = useLocation()
-  const showHeader = !NO_HEADER_PATHS.includes(location.pathname) && !location.pathname.startsWith('/staff/join/')
+  const showHeader =
+    !NO_HEADER_PATHS.includes(location.pathname) &&
+    !location.pathname.startsWith('/staff/join/') &&
+    !location.pathname.endsWith('/call')
 
   useScrollRestoration()
 
@@ -119,6 +123,14 @@ function App() {
               element={
                 <ProtectedRoute roles={STAFF_ROLES}>
                   <HrInterviewsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/interviews/:id/call"
+              element={
+                <ProtectedRoute>
+                  <CallPage />
                 </ProtectedRoute>
               }
             />

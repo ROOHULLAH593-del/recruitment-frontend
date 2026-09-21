@@ -1,8 +1,9 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { CalendarClock, Sparkles } from 'lucide-react'
+import { CalendarClock, Sparkles, Video } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import Button from '../components/Button'
 import Pagination from '../components/Pagination'
 import ScoreChip, { AiSemanticMatchChip } from '../components/ScoreChip'
 import ApplicationCardSkeleton from '../components/skeletons/ApplicationCardSkeleton'
@@ -79,6 +80,17 @@ export default function DashboardPage() {
                             <CalendarClock size={14} />
                             Interview: {new Date(application.interview.scheduled_at).toLocaleString()}
                           </p>
+                        )}
+                        {/* Whether this shows is driven entirely by the backend
+                            including video_call — a cancelled interview simply
+                            omits it, so there's no separate status check to
+                            duplicate here. */}
+                        {application.interview?.video_call && (
+                          <Link to={`/interviews/${application.interview.id}/call`} className="mt-2 inline-block">
+                            <Button variant="secondary" icon={Video} className="px-3 py-1.5 text-xs">
+                              Join Interview
+                            </Button>
+                          </Link>
                         )}
                       </div>
                       <StatusBadge status={application.status} theme={applicationStatusTheme} />
