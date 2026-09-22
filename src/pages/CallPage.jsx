@@ -51,6 +51,12 @@ function useInterview(id) {
       return data.data
     },
     staleTime: STALE_TIME.interviews,
+    // The backend mints a brand-new signed JWT on every single fetch of this
+    // endpoint (JaasService::tokenFor() isn't cached) — a background refetch
+    // here would hand the page a same-room-different-token payload mid-call
+    // for no benefit. Switching back to this tab is exactly when the default
+    // refetchOnWindowFocus would otherwise fire, so it's disabled here.
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -65,23 +71,40 @@ export default function CallPage() {
   const [callError, setCallError] = useState('')
   const containerRef = useRef(null)
   const jitsiApiRef = useRef(null)
+  // The room/JWT actually joined with, frozen at the moment "Join now" is
+  // clicked. Deliberately NOT read from `interview.video_call` inside the
+  // setup effect below — that object gets a new reference (and the backend
+  // issues a brand-new JWT) on every query refetch, e.g. the background
+  // refetch React Query used to fire when this tab regained focus. Reacting
+  // to that reference change was tearing down and recreating the Jitsi
+  // connection mid-call, and since the old one's server-side leave doesn't
+  // resolve as fast as the new one's join, the same user briefly (or not so
+  // briefly) showed up as two participants at once.
+  const joinedVideoCallRef = useRef(null)
 
   const goBack = useCallback(() => {
     navigate(user?.role === 'candidate' ? '/dashboard' : '/hr/interviews', { replace: true })
   }, [navigate, user?.role])
 
   useEffect(() => {
-    if (!hasJoined || !interview?.video_call) return
+    const videoCall = joinedVideoCallRef.current
+    if (!hasJoined || !videoCall) return
 
     let isCancelled = false
+
+    // Belt and braces alongside the dependency array below (which now only
+    // ever flips `hasJoined` once per join): never let a new connection be
+    // created while a previous one is still referenced.
+    jitsiApiRef.current?.dispose()
+    jitsiApiRef.current = null
 
     loadJitsiScript()
       .then(() => {
         if (isCancelled || !containerRef.current) return
 
         const jitsiApi = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, {
-          roomName: interview.video_call.room,
-          jwt: interview.video_call.jwt,
+          roomName: videoCall.room,
+          jwt: videoCall.jwt,
           parentNode: containerRef.current,
           // No userInfo.displayName here — the JWT's context.user already
           // carries the real signed-in name/email, and JaaS uses that
@@ -131,7 +154,7 @@ export default function CallPage() {
       jitsiApiRef.current?.dispose()
       jitsiApiRef.current = null
     }
-  }, [hasJoined, interview?.video_call, goBack])
+  }, [hasJoined, goBack])
 
   function handleLeave() {
     jitsiApiRef.current?.dispose()
@@ -189,7 +212,15 @@ export default function CallPage() {
             </div>
           </dl>
 
-          <Button variant="primary" icon={Video} className="mt-6 w-full" onClick={() => setHasJoined(true)}>
+          <Button
+            variant="primary"
+            icon={Video}
+            className="mt-6 w-full"
+            onClick={() => {
+              joinedVideoCallRef.current = interview.video_call
+              setHasJoined(true)
+            }}
+          >
             Join now
           </Button>
           <button type="button" onClick={goBack} className="mt-3 text-sm font-medium text-ink/55 hover:text-ink">
