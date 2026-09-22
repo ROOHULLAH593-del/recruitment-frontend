@@ -4,6 +4,7 @@ import Header from './components/Header'
 import ProtectedRoute from './components/ProtectedRoute'
 import ScrollToTopButton from './components/ScrollToTopButton'
 import { useScrollRestoration } from './hooks/useScrollRestoration'
+import ApplicationDetailPage from './pages/ApplicationDetailPage'
 import CallPage from './pages/CallPage'
 import DashboardPage from './pages/DashboardPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -11,6 +12,7 @@ import HrApplicationsPage from './pages/HrApplicationsPage'
 import HrDashboardPage from './pages/HrDashboardPage'
 import HrInterviewsPage from './pages/HrInterviewsPage'
 import HrJobsPage from './pages/HrJobsPage'
+import InterviewDetailPage from './pages/InterviewDetailPage'
 import JobDetailPage from './pages/JobDetailPage'
 import JobFormPage from './pages/JobFormPage'
 import JobsPage from './pages/JobsPage'
@@ -123,6 +125,28 @@ function App() {
               element={
                 <ProtectedRoute roles={STAFF_ROLES}>
                   <HrInterviewsPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* No `roles` — ApplicationPolicy::view()/InterviewPolicy::view()
+                allow the record's own candidate as well as any staff member;
+                these are also the destinations of the status-change/offer/
+                interview-scheduled notification emails, so any authenticated
+                role reaching one needs to resolve to something, not a
+                role-mismatch redirect. */}
+            <Route
+              path="/applications/:id"
+              element={
+                <ProtectedRoute>
+                  <ApplicationDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/interviews/:id"
+              element={
+                <ProtectedRoute>
+                  <InterviewDetailPage />
                 </ProtectedRoute>
               }
             />
