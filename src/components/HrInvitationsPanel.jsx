@@ -74,6 +74,28 @@ function InvitationStatusPill({ status, palette, badgeStyle }) {
   )
 }
 
+// Same shape as InvitationStatusPill (theme-driven semantic color, not the
+// brand accent; respects badgeStyle), for the same reason: account status is
+// a state, not a brand moment. Kept as its own small component rather than
+// generalizing InvitationStatusPill — the two pills happen to share a look
+// today, but they're pills for two different, unrelated kinds of status.
+function StaffStatusPill({ isDeactivated, palette, badgeStyle }) {
+  const isOutline = badgeStyle === 'outline'
+  const tone = isDeactivated
+    ? { tint: palette.negativeTint, deep: palette.negativeDeep, base: palette.negative }
+    : { tint: palette.positiveTint, deep: palette.positiveDeep, base: palette.positive }
+
+  const style = isOutline
+    ? { backgroundColor: 'transparent', color: tone.base, border: `1.5px solid ${tone.base}` }
+    : { backgroundColor: tone.tint, color: tone.deep }
+
+  return (
+    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium" style={style}>
+      {isDeactivated ? 'Deactivated' : 'Active'}
+    </span>
+  )
+}
+
 async function copyToClipboard(text) {
   await navigator.clipboard.writeText(text)
 }
@@ -92,6 +114,9 @@ export default function HrInvitationsPanel() {
   const [confirmingReject, setConfirmingReject] = useState(null)
   const [search, setSearch] = useState('')
 
+  const [actingStaffId, setActingStaffId] = useState(null)
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState(null)
+
   const {
     data,
     isLoading,
@@ -103,6 +128,18 @@ export default function HrInvitationsPanel() {
   })
 
   const invitations = data?.data ?? []
+
+  const {
+    data: staffData,
+    isLoading: isStaffLoading,
+    isError: isStaffError,
+  } = useQuery({
+    queryKey: ['staff'],
+    queryFn: () => api.get('/admin/staff', { params: { per_page: 100 } }).then((res) => res.data),
+    staleTime: STALE_TIME.staff,
+  })
+
+  const staff = staffData?.data ?? []
 
   const filteredInvitations = invitations.filter((invitation) => {
     if (!search) return true
@@ -177,6 +214,43 @@ export default function HrInvitationsPanel() {
       showToast(error.response?.data?.message ?? 'Unable to reject this invitation.', 'negative')
     } finally {
       setActingId(null)
+    }
+  }
+
+  function refreshStaff() {
+    queryClient.invalidateQueries({ queryKey: ['staff'] })
+  }
+
+  // No confirmation step — reversible any time by deactivating again, and
+  // it only restores access, it doesn't touch or expose anything on its
+  // own. Deactivating is the one of these two actions with real, immediate
+  // consequences (it signs the account out everywhere), so that's the one
+  // that gets ConfirmDialog.
+  async function handleReactivate(member) {
+    setActingStaffId(member.id)
+
+    try {
+      await api.post(`/admin/staff/${member.id}/reactivate`)
+      showToast(`${member.name} can log in again.`, 'positive')
+      refreshStaff()
+    } catch (error) {
+      showToast(error.response?.data?.message ?? 'Unable to reactivate this account.', 'negative')
+    } finally {
+      setActingStaffId(null)
+    }
+  }
+
+  async function confirmDeactivate(member) {
+    setActingStaffId(member.id)
+
+    try {
+      await api.post(`/admin/staff/${member.id}/deactivate`)
+      showToast(`${member.name} has been deactivated and signed out everywhere.`, 'positive')
+      refreshStaff()
+    } catch (error) {
+      showToast(error.response?.data?.message ?? 'Unable to deactivate this account.', 'negative')
+    } finally {
+      setActingStaffId(null)
     }
   }
 
@@ -319,6 +393,57 @@ export default function HrInvitationsPanel() {
         </div>
       </div>
 
+      <div>
+        <p className="text-xs font-medium text-ink/50">Current staff</p>
+
+        {isStaffError && <p className="mt-3 text-sm text-rust">Unable to load staff. Please try again later.</p>}
+        {!isStaffLoading && !isStaffError && staff.length === 0 && (
+          <p className="mt-3 text-sm text-ink/55">No HR or Assistant HR accounts yet.</p>
+        )}
+
+        <div className="mt-3 space-y-2">
+          {isStaffLoading &&
+            Array.from({ length: 2 }).map((_, index) => <TableCardSkeleton key={index} />)}
+
+          {!isStaffLoading &&
+            staff.map((member) => (
+              <div key={member.id} className="rounded-md border border-ink/10 bg-card-fill p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink">
+                      {member.name} <span className="font-normal text-ink/50">— {ROLE_LABELS[member.role]}</span>
+                    </p>
+                    <p className="truncate text-xs text-ink/55">{member.email}</p>
+                  </div>
+                  <StaffStatusPill isDeactivated={member.deactivated_at !== null} palette={palette} badgeStyle={badgeStyle} />
+                </div>
+
+                <div className="mt-3 border-t border-ink/10 pt-3">
+                  {member.deactivated_at === null ? (
+                    <Button
+                      variant="destructive"
+                      disabled={actingStaffId === member.id}
+                      onClick={() => setConfirmingDeactivate(member)}
+                      className="px-3 py-1 text-xs"
+                    >
+                      Deactivate
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      loading={actingStaffId === member.id}
+                      onClick={() => handleReactivate(member)}
+                      className="px-3 py-1 text-xs"
+                    >
+                      Reactivate
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+        </div>
+      </div>
+
       {confirmingReject && (
         <ConfirmDialog
           title="Reject invitation"
@@ -327,6 +452,17 @@ export default function HrInvitationsPanel() {
           variant="destructive"
           onConfirm={() => confirmReject(confirmingReject)}
           onClose={() => setConfirmingReject(null)}
+        />
+      )}
+
+      {confirmingDeactivate && (
+        <ConfirmDialog
+          title="Deactivate account"
+          message={`Deactivate ${confirmingDeactivate.name}'s account? They'll be signed out everywhere immediately and won't be able to log in until reactivated. Their job postings, interviews and application reviews stay exactly as they are.`}
+          confirmLabel="Deactivate"
+          variant="destructive"
+          onConfirm={() => confirmDeactivate(confirmingDeactivate)}
+          onClose={() => setConfirmingDeactivate(null)}
         />
       )}
     </div>

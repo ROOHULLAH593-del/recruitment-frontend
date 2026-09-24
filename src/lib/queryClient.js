@@ -31,6 +31,9 @@ export const STALE_TIME = {
   // panel is the one place that state gets watched closely — short, like
   // applications/interviews, rather than long like job postings.
   invitations: 30 * 1000,
+  // Staff deactivation/reactivation is the same kind of admin action as
+  // accepting/rejecting an invitation — same short window.
+  staff: 30 * 1000,
 }
 
 // Client errors (a definitive 404, a validation 422, a conflict 409) won't
