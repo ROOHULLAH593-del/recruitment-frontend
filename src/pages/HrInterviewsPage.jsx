@@ -1,8 +1,8 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Search, Video } from 'lucide-react'
-import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigationType } from 'react-router-dom'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import Pagination from '../components/Pagination'
@@ -18,6 +18,15 @@ import { STALE_TIME } from '../lib/queryClient'
 
 const SELECT_CLASSES =
   'rounded-md border border-ink/15 bg-card-fill px-3 py-1.5 text-sm text-ink focus:border-jade focus:outline-none focus:ring-1 focus:ring-jade disabled:opacity-60'
+
+// Same mechanism as JobsPage's rememberedPageState: keyed by history-entry
+// (location.key), so a PUSH (fresh nav-menu visit) always mints a new key
+// and starts clean, while a POP back to a previously-left entry (e.g.
+// returning from a video call) finds exactly what was left behind. Bundles
+// page with the status filter and search text (not just page) so a restore
+// can never show a page number pulled from one filter/search combination
+// paired with a different one still in the inputs.
+const rememberedInterviewsState = new Map()
 
 // The first identifying column and the Actions column stay pinned while the
 // data columns between them scroll — the standard frozen-column pattern from
@@ -47,10 +56,14 @@ export default function HrInterviewsPage() {
   const scrollRef = useRef(null)
   const { canScrollLeft, canScrollRight } = useScrollShadow(scrollRef)
   const queryClient = useQueryClient()
-  const [page, setPage] = useState(1)
+  const location = useLocation()
+  const navigationType = useNavigationType()
+  const remembered = navigationType === 'POP' ? rememberedInterviewsState.get(location.key) : undefined
+
+  const [page, setPage] = useState(() => remembered?.page ?? 1)
   const [actionError, setActionError] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState(() => remembered?.statusFilter ?? '')
+  const [search, setSearch] = useState(() => remembered?.search ?? '')
   const [updatingId, setUpdatingId] = useState(null)
   const [updatingAction, setUpdatingAction] = useState(null)
 
@@ -58,6 +71,23 @@ export default function HrInterviewsPage() {
   const [rescheduleDate, setRescheduleDate] = useState('')
   const [rescheduleError, setRescheduleError] = useState('')
   const [isRescheduling, setIsRescheduling] = useState(false)
+
+  // Kept current via its own no-dependency effect (never mutated directly
+  // during render — react-hooks/refs flags that) rather than depending on
+  // [page, statusFilter, search] directly in the effect below, so that one
+  // doesn't re-run on every keystroke or filter change — only the latest
+  // values at the moment of actual unmount matter.
+  const latestRef = useRef({ page, statusFilter, search })
+  useEffect(() => {
+    latestRef.current = { page, statusFilter, search }
+  })
+
+  useEffect(() => {
+    const key = location.key
+    return () => {
+      rememberedInterviewsState.set(key, latestRef.current)
+    }
+  }, [location.key])
 
   const queryKey = ['interviews', 'hr', page]
 

@@ -1,7 +1,8 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { CalendarClock, Search, Sparkles, UserRound } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigationType } from 'react-router-dom'
 import Button from '../components/Button'
 import CandidateDocumentsList from '../components/CandidateDocumentsList'
 import Modal from '../components/Modal'
@@ -30,6 +31,15 @@ const EDUCATION_LABELS = {
   phd: 'PhD',
 }
 
+// Same mechanism as JobsPage's rememberedPageState: keyed by history-entry
+// (location.key), so a PUSH (fresh nav-menu visit) always mints a new key
+// and starts clean, while a POP back to a previously-left entry (e.g.
+// returning from a candidate's application detail) finds exactly what was
+// left behind. Bundles page with the job/status filters and search text
+// (not just page) so a restore can never show a page number pulled from one
+// filter/search combination paired with a different one still in the inputs.
+const rememberedApplicationsState = new Map()
+
 // First identifying column (Candidate) and the rightmost, most-actionable
 // column (Interview — this table has no column literally named "Actions",
 // but it's the one holding the Schedule Interview button) stay pinned while
@@ -53,11 +63,15 @@ export default function HrApplicationsPage() {
   const scrollRef = useRef(null)
   const { canScrollLeft, canScrollRight } = useScrollShadow(scrollRef)
   const queryClient = useQueryClient()
-  const [page, setPage] = useState(1)
+  const location = useLocation()
+  const navigationType = useNavigationType()
+  const remembered = navigationType === 'POP' ? rememberedApplicationsState.get(location.key) : undefined
+
+  const [page, setPage] = useState(() => remembered?.page ?? 1)
   const [actionError, setActionError] = useState('')
-  const [jobFilter, setJobFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [search, setSearch] = useState('')
+  const [jobFilter, setJobFilter] = useState(() => remembered?.jobFilter ?? '')
+  const [statusFilter, setStatusFilter] = useState(() => remembered?.statusFilter ?? '')
+  const [search, setSearch] = useState(() => remembered?.search ?? '')
   const [updatingId, setUpdatingId] = useState(null)
 
   const [schedulingApplication, setSchedulingApplication] = useState(null)
@@ -71,6 +85,23 @@ export default function HrApplicationsPage() {
   const [rejectionReason, setRejectionReason] = useState('')
   const [rejectionError, setRejectionError] = useState('')
   const [isRejecting, setIsRejecting] = useState(false)
+
+  // Kept current via its own no-dependency effect (never mutated directly
+  // during render — react-hooks/refs flags that) rather than depending on
+  // [page, jobFilter, statusFilter, search] directly in the effect below,
+  // so that one doesn't re-run on every keystroke or filter change — only
+  // the latest values at the moment of actual unmount matter.
+  const latestRef = useRef({ page, jobFilter, statusFilter, search })
+  useEffect(() => {
+    latestRef.current = { page, jobFilter, statusFilter, search }
+  })
+
+  useEffect(() => {
+    const key = location.key
+    return () => {
+      rememberedApplicationsState.set(key, latestRef.current)
+    }
+  }, [location.key])
 
   const queryKey = ['applications', 'hr', page]
 
