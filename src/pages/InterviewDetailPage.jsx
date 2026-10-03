@@ -106,10 +106,14 @@ export default function InterviewDetailPage() {
               )}
             </dl>
 
-            {/* Driven entirely by video_call's presence, not a client-side
-                re-check of status — the backend already omits it once the
-                interview is cancelled. */}
-            {interview.video_call && (
+            {/* Driven entirely by has_video_call, not a client-side re-check
+                of status — the backend already sets it to false once the
+                interview is cancelled. This page already fetches the single
+                interview (show()), which also carries the real, signed
+                video_call CallPage needs — has_video_call is just the same
+                cheap presence flag every other "Join Interview" check in
+                the app uses, kept consistent here too. */}
+            {interview.has_video_call && (
               <Link to={`/interviews/${interview.id}/call`} className="mt-6 inline-block">
                 <Button variant="primary" icon={Video}>
                   Join Interview

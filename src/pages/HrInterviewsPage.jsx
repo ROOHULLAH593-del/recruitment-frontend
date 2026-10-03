@@ -265,12 +265,15 @@ export default function HrInterviewsPage() {
                       </td>
                       <td className="max-w-xs truncate px-6 py-4 text-ink/55">{interview.notes ?? '—'}</td>
                       <td className={`px-6 py-4 text-right ${STICKY_RIGHT} ${canScrollLeft ? SHADOW_LEFT : ''}`}>
-                        {isActive || interview.video_call ? (
+                        {isActive || interview.has_video_call ? (
                           <div className="flex justify-end gap-2">
-                            {/* Driven entirely by video_call's presence, not
-                                a client-side re-check of status — the backend
-                                already omits it for a cancelled interview. */}
-                            {interview.video_call && (
+                            {/* Driven entirely by has_video_call, not a
+                                client-side re-check of status — the backend
+                                already sets it to false for a cancelled
+                                interview. CallPage fetches its own fresh
+                                token on click rather than reusing one carried
+                                in this list, which the list never signs. */}
+                            {interview.has_video_call && (
                               <Link to={`/interviews/${interview.id}/call`}>
                                 <Button variant="ghost" icon={Video} className="px-2 py-1">
                                   Join Interview
@@ -353,9 +356,9 @@ export default function HrInterviewsPage() {
                       </div>
                     </dl>
 
-                    {(isActive || interview.video_call) && (
+                    {(isActive || interview.has_video_call) && (
                       <div className="mt-4 flex flex-wrap gap-2 border-t border-ink/10 pt-3">
-                        {interview.video_call && (
+                        {interview.has_video_call && (
                           <Link to={`/interviews/${interview.id}/call`}>
                             <Button variant="ghost" icon={Video} className="px-2 py-1">
                               Join Interview

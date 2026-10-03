@@ -81,11 +81,14 @@ export default function DashboardPage() {
                             Interview: {new Date(application.interview.scheduled_at).toLocaleString()}
                           </p>
                         )}
-                        {/* Whether this shows is driven entirely by the backend
-                            including video_call — a cancelled interview simply
-                            omits it, so there's no separate status check to
-                            duplicate here. */}
-                        {application.interview?.video_call && (
+                        {/* Whether this shows is driven entirely by the
+                            backend's has_video_call — a cancelled interview
+                            simply sets it to false, so there's no separate
+                            status check to duplicate here. CallPage fetches
+                            its own fresh token on click rather than reusing
+                            one from here, which is never signed for this
+                            list in the first place. */}
+                        {application.interview?.has_video_call && (
                           <Link to={`/interviews/${application.interview.id}/call`} className="mt-2 inline-block">
                             <Button variant="secondary" icon={Video} className="px-3 py-1.5 text-xs">
                               Join Interview
