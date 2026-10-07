@@ -11,6 +11,16 @@ import FormSkeleton from './skeletons/FormSkeleton'
 
 const RESUME_MAX_BYTES = 5 * 1024 * 1024
 
+// Longer than the backend's own AI time budget (35s) plus the local text
+// fallback it can still run after that, so the browser never gives up on
+// the request before the backend has — the shared axios instance otherwise
+// has no timeout at all.
+const RESUME_UPLOAD_TIMEOUT_MS = 45000
+
+// Gemini usually answers well under this, but a slow/overloaded attempt
+// can take a while — let the candidate know this isn't stuck.
+const SLOW_UPLOAD_NOTICE_DELAY_MS = 10000
+
 // Order matches the apply-time gate on the backend (transcript, CNIC front,
 // CNIC back are required; certificates are supporting documents).
 const DOCUMENT_TYPES = [
@@ -78,6 +88,8 @@ function ProfileFormFields({ profile }) {
   const [isSaving, setIsSaving] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const [isUploadingResume, setIsUploadingResume] = useState(false)
+  const [isUploadTakingAWhile, setIsUploadTakingAWhile] = useState(false)
+  const slowUploadTimerRef = useRef(null)
   const [uploadError, setUploadError] = useState('')
   const [resumeNotice, setResumeNotice] = useState('')
 
@@ -123,12 +135,14 @@ function ProfileFormFields({ profile }) {
     }
 
     setIsUploadingResume(true)
+    setIsUploadTakingAWhile(false)
+    slowUploadTimerRef.current = setTimeout(() => setIsUploadTakingAWhile(true), SLOW_UPLOAD_NOTICE_DELAY_MS)
 
     const body = new FormData()
     body.append('resume', file)
 
     try {
-      const { data } = await api.post('/profile/resume-upload', body)
+      const { data } = await api.post('/profile/resume-upload', body, { timeout: RESUME_UPLOAD_TIMEOUT_MS })
       const suggested = data.data
 
       // Pre-fill only — nothing is saved until the candidate submits the
@@ -157,7 +171,9 @@ function ProfileFormFields({ profile }) {
       setRetryResumeFile(file)
       setUploadError(error.response?.data?.message ?? "Couldn't auto-fill — please enter your details manually.")
     } finally {
+      clearTimeout(slowUploadTimerRef.current)
       setIsUploadingResume(false)
+      setIsUploadTakingAWhile(false)
     }
   }
 
@@ -287,6 +303,12 @@ function ProfileFormFields({ profile }) {
             className="hidden"
           />
         </div>
+        {isUploadingResume && (
+          <p className="mt-3 text-sm text-ink/60">
+            Reading your resume…
+            {isUploadTakingAWhile && ' The AI service is a bit slow. Still working, this can take up to 30 seconds.'}
+          </p>
+        )}
         {uploadError && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <p className="text-sm text-rust">{uploadError}</p>
