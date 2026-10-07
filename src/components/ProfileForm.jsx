@@ -90,15 +90,28 @@ function ProfileFormFields({ profile }) {
     setIsSaved(false)
   }
 
-  async function handleResumeFileChange(event) {
-    const file = event.target.files?.[0]
-    // Reset now, not after the request, so picking the same file again still fires this handler.
-    event.target.value = ''
-    if (!file) return
+  // Kept across a failure so "Try again" can resend the exact same file
+  // without making the candidate reopen the picker — cleared on success,
+  // since there's nothing left to retry.
+  const [retryResumeFile, setRetryResumeFile] = useState(null)
 
+  function isAcceptablePdf(file) {
+    if (file.type === 'application/pdf') return true
+
+    // Some browsers/OSes report an empty or generic type for a perfectly
+    // valid PDF (confirmed during an audit — this was rejecting real
+    // resumes client-side that the backend's own content-based check would
+    // have accepted). Fall back to the extension only when the browser
+    // didn't give a specific type to trust instead.
+    const isGenericType = file.type === '' || file.type === 'application/octet-stream'
+
+    return isGenericType && /\.pdf$/i.test(file.name)
+  }
+
+  async function uploadResumeFile(file) {
     setUploadError('')
 
-    if (file.type !== 'application/pdf') {
+    if (!isAcceptablePdf(file)) {
       setUploadError('Please upload a PDF file.')
       return
     }
@@ -126,11 +139,31 @@ function ProfileFormFields({ profile }) {
         resume_text: suggested.resume_text,
       }))
       setIsSaved(false)
+      setRetryResumeFile(null)
       showToast('Resume parsed — review the pre-filled fields below, then save.', 'positive')
     } catch (error) {
+      // Every category the backend returns already ends by pointing at
+      // manual entry, so there's nothing further to add here — just show
+      // it and keep the file so "Try again" doesn't need the picker.
+      setRetryResumeFile(file)
       setUploadError(error.response?.data?.message ?? "Couldn't auto-fill — please enter your details manually.")
     } finally {
       setIsUploadingResume(false)
+    }
+  }
+
+  async function handleResumeFileChange(event) {
+    const file = event.target.files?.[0]
+    // Reset now, not after the request, so picking the same file again still fires this handler.
+    event.target.value = ''
+    if (!file) return
+
+    await uploadResumeFile(file)
+  }
+
+  async function handleRetryResumeUpload() {
+    if (retryResumeFile) {
+      await uploadResumeFile(retryResumeFile)
     }
   }
 
@@ -245,7 +278,16 @@ function ProfileFormFields({ profile }) {
             className="hidden"
           />
         </div>
-        {uploadError && <p className="mt-3 text-sm text-rust">{uploadError}</p>}
+        {uploadError && (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <p className="text-sm text-rust">{uploadError}</p>
+            {retryResumeFile && (
+              <Button type="button" variant="ghost" loading={isUploadingResume} onClick={handleRetryResumeUpload}>
+                Try again
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg border border-ink/10 bg-canvas/60 p-5">
