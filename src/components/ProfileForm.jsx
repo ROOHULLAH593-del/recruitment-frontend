@@ -79,6 +79,7 @@ function ProfileFormFields({ profile }) {
   const [isSaved, setIsSaved] = useState(false)
   const [isUploadingResume, setIsUploadingResume] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  const [resumeNotice, setResumeNotice] = useState('')
 
   const [uploadingDocumentType, setUploadingDocumentType] = useState(null)
   const [documentErrors, setDocumentErrors] = useState({})
@@ -110,6 +111,7 @@ function ProfileFormFields({ profile }) {
 
   async function uploadResumeFile(file) {
     setUploadError('')
+    setResumeNotice('')
 
     if (!isAcceptablePdf(file)) {
       setUploadError('Please upload a PDF file.')
@@ -140,7 +142,14 @@ function ProfileFormFields({ profile }) {
       }))
       setIsSaved(false)
       setRetryResumeFile(null)
-      showToast('Resume parsed — review the pre-filled fields below, then save.', 'positive')
+
+      if (data.source === 'basic') {
+        setResumeNotice(
+          'AI auto-fill is busy, so we filled in what we could from your file. Please review every field before saving.',
+        )
+      } else {
+        showToast('Resume parsed — review the pre-filled fields below, then save.', 'positive')
+      }
     } catch (error) {
       // Every category the backend returns already ends by pointing at
       // manual entry, so there's nothing further to add here — just show
@@ -287,6 +296,9 @@ function ProfileFormFields({ profile }) {
               </Button>
             )}
           </div>
+        )}
+        {resumeNotice && (
+          <p className="mt-3 rounded-md bg-ink/5 px-3 py-2 text-sm text-ink/70">{resumeNotice}</p>
         )}
       </div>
 
